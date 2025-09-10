@@ -4,7 +4,7 @@ import { useState } from 'react';
 import dynamic from 'next/dynamic';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Farmer, Truck, Store, Scan } from 'lucide-react';
+import { Tractor, Truck, Store, Scan } from 'lucide-react';
 import type { User, UserRole } from '@/lib/types';
 import { mockUsers, getUserByRole } from '@/lib/data';
 
@@ -14,7 +14,7 @@ const RetailerDashboard = dynamic(() => import('./dashboard/retailer-dashboard')
 const ConsumerView = dynamic(() => import('./dashboard/consumer-view').then(mod => mod.ConsumerView));
 
 const roles: { name: UserRole; icon: React.ReactNode }[] = [
-  { name: 'farmer', icon: <Farmer className="mr-2 h-5 w-5" /> },
+  { name: 'farmer', icon: <Tractor className="mr-2 h-5 w-5" /> },
   { name: 'distributor', icon: <Truck className="mr-2 h-5 w-5" /> },
   { name: 'retailer', icon: <Store className="mr-2 h-5 w-5" /> },
   { name: 'consumer', icon: <Scan className="mr-2 h-5 w-5" /> },
