@@ -44,7 +44,7 @@ export function MainDashboard() {
   return (
     <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
       <div className="md:col-span-1">
-        <Card className="sticky top-24 shadow-lg border-primary/20">
+        <Card className="sticky top-24 shadow-lg">
           <CardHeader>
             <CardTitle className="font-headline text-2xl">Select Your Role</CardTitle>
           </CardHeader>

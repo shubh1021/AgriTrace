@@ -75,7 +75,7 @@ export function BatchTimeline({ details }: { details: BatchDetails }) {
             <CardHeader><CardTitle className="flex items-center gap-2"><DollarSign/>Current Status</CardTitle></CardHeader>
             <CardContent>
                 <p className="text-2xl font-bold text-primary">{batch.status}</p>
-                {batch.currentPrice && <p className="text-xl text-accent mt-2">${batch.currentPrice.toFixed(2)}</p>}
+                {batch.currentPrice && <p className="text-xl text-accent-foreground mt-2">${batch.currentPrice.toFixed(2)}</p>}
             </CardContent>
         </Card>
         <Card>

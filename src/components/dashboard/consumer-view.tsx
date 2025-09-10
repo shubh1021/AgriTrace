@@ -39,7 +39,7 @@ export function ConsumerView() {
   };
 
   return (
-    <Card className="shadow-lg max-w-lg mx-auto border-primary/20">
+    <Card className="shadow-lg max-w-lg mx-auto">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 font-headline text-2xl">
           <ScanLine /> Trace Your Produce

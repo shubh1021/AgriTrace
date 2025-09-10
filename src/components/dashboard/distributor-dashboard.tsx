@@ -66,7 +66,7 @@ function ClaimBatchForm({ user, onBatchClaimed }: { user: User, onBatchClaimed: 
   };
 
   return (
-     <Card className="shadow-lg mb-8 border-primary/20">
+     <Card className="shadow-lg mb-8">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 font-headline text-2xl">
           <ClipboardCheck /> Claim Batch
@@ -135,7 +135,7 @@ function TransferBatchDialog({ batch, user, onBatchTransferred }: { batch: Batch
 
 function BatchList({ batches, user, onBatchTransferred }: { batches: Batch[], user: User, onBatchTransferred: () => void }) {
   return (
-    <Card className="shadow-lg border-primary/20">
+    <Card className="shadow-lg">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 font-headline text-2xl">
           <Truck /> My Inventory
@@ -145,7 +145,7 @@ function BatchList({ batches, user, onBatchTransferred }: { batches: Batch[], us
       <CardContent>
         <div className="space-y-4">
           {batches.length === 0 ? <p>No batches in your inventory.</p> : batches.map((batch) => (
-            <Card key={batch.id} className="bg-background/50">
+            <Card key={batch.id} className="bg-muted/30">
               <CardHeader>
                 <CardTitle className="text-xl">{batch.name}</CardTitle>
                 <CardDescription>ID: {batch.id}</CardDescription>

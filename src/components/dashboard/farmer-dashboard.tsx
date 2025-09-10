@@ -76,7 +76,7 @@ function CreateBatchForm({ onBatchCreated }: { onBatchCreated: () => void }) {
   };
 
   return (
-    <Card className="shadow-lg mb-8 border-primary/20">
+    <Card className="shadow-lg mb-8">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 font-headline text-2xl">
           <PlusCircle /> Create New Batch
@@ -115,7 +115,7 @@ function CreateBatchForm({ onBatchCreated }: { onBatchCreated: () => void }) {
 
 function BatchList({ batches, user }: { batches: Batch[], user: User }) {
   return (
-    <Card className="shadow-lg border-primary/20">
+    <Card className="shadow-lg">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 font-headline text-2xl">
           <Sprout /> My Batches
@@ -125,7 +125,7 @@ function BatchList({ batches, user }: { batches: Batch[], user: User }) {
       <CardContent>
         <div className="space-y-4">
           {batches.length === 0 ? <p>No batches created yet.</p> : batches.map((batch) => (
-            <Card key={batch.id} className="bg-background/50">
+            <Card key={batch.id} className="bg-muted/30">
               <CardHeader>
                 <CardTitle className="text-xl">{batch.name}</CardTitle>
                 <CardDescription>ID: {batch.id}</CardDescription>

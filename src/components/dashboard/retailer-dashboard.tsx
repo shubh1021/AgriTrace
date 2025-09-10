@@ -86,7 +86,7 @@ function SetPriceDialog({ batch, user, onPriceSet }: { batch: Batch, user: User,
 
 function BatchList({ batches, user, onPriceSet }: { batches: Batch[], user: User, onPriceSet: () => void }) {
   return (
-    <Card className="shadow-lg border-primary/20">
+    <Card className="shadow-lg">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 font-headline text-2xl">
           <Store /> My Stock
@@ -96,7 +96,7 @@ function BatchList({ batches, user, onPriceSet }: { batches: Batch[], user: User
       <CardContent>
         <div className="space-y-4">
           {batches.length === 0 ? <p>You have no batches in stock.</p> : batches.map((batch) => (
-            <Card key={batch.id} className="bg-background/50">
+            <Card key={batch.id} className="bg-muted/30">
               <CardHeader>
                 <CardTitle className="text-xl">{batch.name}</CardTitle>
                 <CardDescription>ID: {batch.id}</CardDescription>
@@ -104,7 +104,7 @@ function BatchList({ batches, user, onPriceSet }: { batches: Batch[], user: User
               <CardContent className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
                   <p><strong>Product:</strong> {batch.productType}</p>
-                  <p><strong>Current Price:</strong> <span className="font-semibold text-accent">{batch.currentPrice ? `$${batch.currentPrice.toFixed(2)}` : 'Not set'}</span></p>
+                  <p><strong>Current Price:</strong> <span className="font-semibold text-accent-foreground">{batch.currentPrice ? `$${batch.currentPrice.toFixed(2)}` : 'Not set'}</span></p>
                 </div>
                 <SetPriceDialog batch={batch} user={user} onPriceSet={onPriceSet} />
               </CardContent>

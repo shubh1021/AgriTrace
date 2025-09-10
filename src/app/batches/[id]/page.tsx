@@ -27,7 +27,7 @@ export default async function BatchPage({ params }: BatchPageProps) {
 
   return (
     <div className="container mx-auto p-4 md:p-8">
-      <Card className="w-full max-w-4xl mx-auto shadow-2xl border-primary/20">
+      <Card className="w-full max-w-4xl mx-auto shadow-2xl">
         <CardHeader className="text-center">
           <CardTitle className="font-headline text-4xl">{data.batch.name}</CardTitle>
           <CardDescription className="text-lg">Supply Chain Journey</CardDescription>
