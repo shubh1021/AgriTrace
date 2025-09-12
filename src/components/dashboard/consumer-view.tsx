@@ -19,9 +19,10 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { ScanLine } from 'lucide-react';
 import { useLanguage } from '@/context/language-context';
+import { useEffect } from 'react';
 
 const TraceBatchSchema = z.object({
   batchId: z.string().min(1, 'Batch ID is required.'),
@@ -30,11 +31,21 @@ type TraceBatchValues = z.infer<typeof TraceBatchSchema>;
 
 export function ConsumerView() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { t } = useLanguage();
+  
   const form = useForm<TraceBatchValues>({
     resolver: zodResolver(TraceBatchSchema),
-    defaultValues: { batchId: '' },
+    defaultValues: { batchId: searchParams.get('batchId') || '' },
   });
+
+  useEffect(() => {
+    const batchId = searchParams.get('batchId');
+    if (batchId) {
+      form.setValue('batchId', batchId);
+    }
+  }, [searchParams, form]);
+
 
   const onSubmit = (values: TraceBatchValues) => {
     router.push(`/batches/${values.batchId}`);

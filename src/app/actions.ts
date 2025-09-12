@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import { generateDescriptiveBatchName } from '@/ai/flows/generate-descriptive-batch-name';
 import { batches, transfers, mockUsers, getUser } from '@/lib/data';
-import type { Batch, BatchDetails, EnrichedTransfer, User } from '@/lib/types';
+import type { Batch, BatchDetails, EnrichedTransfer, User, Transfer } from '@/lib/types';
 import { createHash } from 'crypto';
 
 const CreateBatchSchema = z.object({
@@ -43,7 +43,7 @@ export async function createBatchAction(formData: FormData) {
       currentOwnerId: farmer.id,
       priceHistory: [],
       metadataHash,
-      qrCodeUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/batches/${batchId}`,
+      qrCodeUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/?role=consumer&batchId=${batchId}`,
     };
 
     batches.unshift(newBatch);

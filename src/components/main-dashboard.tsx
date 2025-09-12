@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,6 +8,8 @@ import { Tractor, Truck, Store, Scan } from 'lucide-react';
 import type { User, UserRole } from '@/lib/types';
 import { mockUsers, getUserByRole } from '@/lib/data';
 import { useLanguage } from '@/context/language-context';
+import { useSearchParams } from 'next/navigation';
+import { Suspense } from 'react';
 
 const FarmerDashboard = dynamic(() => import('./dashboard/farmer-dashboard').then(mod => mod.FarmerDashboard));
 const DistributorDashboard = dynamic(() => import('./dashboard/distributor-dashboard').then(mod => mod.DistributorDashboard));
@@ -21,10 +23,18 @@ const roles: { name: UserRole; icon: React.ReactNode }[] = [
   { name: 'consumer', icon: <Scan className="mr-2 h-5 w-5" /> },
 ];
 
-export function MainDashboard() {
-  const [activeRole, setActiveRole] = useState<UserRole>('farmer');
+function MainDashboardContent() {
+  const searchParams = useSearchParams();
+  const roleFromUrl = searchParams.get('role') as UserRole | null;
+  const [activeRole, setActiveRole] = useState<UserRole>(roleFromUrl || 'farmer');
   const activeUser = getUserByRole(activeRole) || mockUsers[0];
   const { t } = useLanguage();
+
+  useEffect(() => {
+    if (roleFromUrl && roleFromUrl !== activeRole) {
+      setActiveRole(roleFromUrl);
+    }
+  }, [roleFromUrl, activeRole]);
 
   const renderDashboard = () => {
     if (!activeUser) return <p>{t('select_role_prompt')}</p>;
@@ -69,5 +79,13 @@ export function MainDashboard() {
         {renderDashboard()}
       </div>
     </div>
+  );
+}
+
+export function MainDashboard() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <MainDashboardContent />
+    </Suspense>
   );
 }
