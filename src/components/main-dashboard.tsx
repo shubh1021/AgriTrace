@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tractor, Truck, Store, Scan } from 'lucide-react';
 import type { User, UserRole } from '@/lib/types';
 import { mockUsers, getUserByRole } from '@/lib/data';
+import { useLanguage } from '@/context/language-context';
 
 const FarmerDashboard = dynamic(() => import('./dashboard/farmer-dashboard').then(mod => mod.FarmerDashboard));
 const DistributorDashboard = dynamic(() => import('./dashboard/distributor-dashboard').then(mod => mod.DistributorDashboard));
@@ -23,9 +24,10 @@ const roles: { name: UserRole; icon: React.ReactNode }[] = [
 export function MainDashboard() {
   const [activeRole, setActiveRole] = useState<UserRole>('farmer');
   const activeUser = getUserByRole(activeRole) || mockUsers[0];
+  const { t } = useLanguage();
 
   const renderDashboard = () => {
-    if (!activeUser) return <p>Select a role to begin.</p>;
+    if (!activeUser) return <p>{t('select_role_prompt')}</p>;
 
     switch (activeRole) {
       case 'farmer':
@@ -46,7 +48,7 @@ export function MainDashboard() {
       <div className="md:col-span-1">
         <Card className="sticky top-24 shadow-lg">
           <CardHeader>
-            <CardTitle className="font-headline text-2xl">Select Your Role</CardTitle>
+            <CardTitle className="font-headline text-2xl">{t('select_your_role')}</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col space-y-2">
             {roles.map(({ name, icon }) => (
@@ -57,7 +59,7 @@ export function MainDashboard() {
                 onClick={() => setActiveRole(name)}
               >
                 {icon}
-                <span className="capitalize">{name}</span>
+                <span className="capitalize">{t(name)}</span>
               </Button>
             ))}
           </CardContent>

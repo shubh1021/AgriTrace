@@ -21,6 +21,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { useRouter } from 'next/navigation';
 import { ScanLine } from 'lucide-react';
+import { useLanguage } from '@/context/language-context';
 
 const TraceBatchSchema = z.object({
   batchId: z.string().min(1, 'Batch ID is required.'),
@@ -29,6 +30,7 @@ type TraceBatchValues = z.infer<typeof TraceBatchSchema>;
 
 export function ConsumerView() {
   const router = useRouter();
+  const { t } = useLanguage();
   const form = useForm<TraceBatchValues>({
     resolver: zodResolver(TraceBatchSchema),
     defaultValues: { batchId: '' },
@@ -42,17 +44,17 @@ export function ConsumerView() {
     <Card className="shadow-lg max-w-lg mx-auto">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 font-headline text-2xl">
-          <ScanLine /> Trace Your Produce
+          <ScanLine /> {t('trace_your_produce')}
         </CardTitle>
-        <CardDescription>Enter the Batch ID from the product's QR code to see its full journey.</CardDescription>
+        <CardDescription>{t('trace_description')}</CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="flex items-start gap-2">
             <FormField name="batchId" control={form.control} render={({ field }) => (
-              <FormItem className="flex-grow"><FormControl><Input placeholder="Enter Batch ID..." {...field} /></FormControl><FormMessage /></FormItem>
+              <FormItem className="flex-grow"><FormControl><Input placeholder={t('enter_batch_id')} {...field} /></FormControl><FormMessage /></FormItem>
             )} />
-            <Button type="submit">Trace</Button>
+            <Button type="submit">{t('trace')}</Button>
           </form>
         </Form>
       </CardContent>

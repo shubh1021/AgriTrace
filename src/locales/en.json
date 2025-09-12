@@ -1,0 +1,12 @@
+{
+  "select_your_role": "Select Your Role",
+  "farmer": "Farmer",
+  "distributor": "Distributor",
+  "retailer": "Retailer",
+  "consumer": "Consumer",
+  "select_role_prompt": "Select a role to begin.",
+  "trace_your_produce": "Trace Your Produce",
+  "trace_description": "Enter the Batch ID from the product's QR code to see its full journey.",
+  "enter_batch_id": "Enter Batch ID...",
+  "trace": "Trace"
+}
