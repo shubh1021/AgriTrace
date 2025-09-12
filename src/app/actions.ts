@@ -136,11 +136,15 @@ export async function getBatchDetails(batchId: string): Promise<BatchDetails | n
     const batchTransfers: EnrichedTransfer[] = transfers
         .filter(t => t.batchId === batchId)
         .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
-        .map(t => ({
-            ...t,
-            fromUser: getUser(t.fromId),
-            toUser: getUser(t.toId)
-        }));
+        .map(t => {
+            const fromUser = getUser(t.fromId);
+            const toUser = getUser(t.toId);
+            return {
+                ...t,
+                fromUser,
+                toUser
+            };
+        });
 
     const farmer = getUser(batch.farmerId);
     const retailer = batch.status === 'At Retailer' || batch.status === 'Sold' 
