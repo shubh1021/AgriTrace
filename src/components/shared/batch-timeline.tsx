@@ -22,7 +22,10 @@ const StatusIcon = ({ status, isLast }: { status: string, isLast: boolean }) => 
   );
 };
 
-export function BatchTimeline({ details }: { details: BatchDetails }) {
+export function BatchTimeline({ details, t }: { details: BatchDetails | null, t: (key: string) => string }) {
+  if (!details) {
+    return null;
+  }
   const { batch, transfers, farmer } = details;
   
   const timelineEvents = [];
@@ -31,13 +34,13 @@ export function BatchTimeline({ details }: { details: BatchDetails }) {
   if (farmer) {
     timelineEvents.push({
       status: 'Farmed',
-      title: `Harvested by ${farmer.name}`,
+      title: t('harvested_by') + ` ${farmer.name}`,
       details: [
-        `Product: ${batch.productType}`,
-        `Location: ${batch.location}`,
-        `Harvest Date: ${format(new Date(batch.harvestDate), 'PPP')}`,
-        `Quantity: ${batch.quantity} kg`,
-        `Quality: ${batch.qualityGrade}`
+        `${t('product')}: ${batch.productType}`,
+        `${t('location')}: ${batch.location}`,
+        `${t('harvest_date')}: ${format(new Date(batch.harvestDate), 'PPP')}`,
+        `${t('quantity')}: ${batch.quantity} kg`,
+        `${t('quality')}: ${batch.qualityGrade}`
       ]
     });
   }
@@ -46,10 +49,10 @@ export function BatchTimeline({ details }: { details: BatchDetails }) {
   transfers.forEach(transfer => {
     timelineEvents.push({
       status: 'Distribution',
-      title: `Transferred to ${transfer.toUser?.name || 'Unknown'}`,
+      title: t('transferred_to') + ` ${transfer.toUser?.name || t('unknown')}`,
       details: [
-        `Handled by: ${transfer.fromUser?.name || 'Unknown'}`,
-        `Date: ${format(new Date(transfer.timestamp), 'PPP p')}`
+        `${t('handled_by')}: ${transfer.fromUser?.name || t('unknown')}`,
+        `${t('date')}: ${format(new Date(transfer.timestamp), 'PPP p')}`
       ]
     });
   });
@@ -60,11 +63,11 @@ export function BatchTimeline({ details }: { details: BatchDetails }) {
     const priceEvent = batch.priceHistory[batch.priceHistory.length -1];
     timelineEvents.push({
       status: 'Retail',
-      title: `Stocked at ${retailer?.name || 'Retailer'}`,
+      title: t('stocked_at') + ` ${retailer?.name || t('retailer')}`,
       details: priceEvent ? [
-          `Price set on ${format(new Date(priceEvent.timestamp), 'PPP')}`,
-          `Price: $${priceEvent.price.toFixed(2)}`
-      ] : ['Awaiting pricing information.']
+          t('price_set_on') + ` ${format(new Date(priceEvent.timestamp), 'PPP')}`,
+          `${t('price')}: $${priceEvent.price.toFixed(2)}`
+      ] : [t('awaiting_pricing_information')]
     });
   }
 
@@ -72,16 +75,16 @@ export function BatchTimeline({ details }: { details: BatchDetails }) {
     <div className="space-y-8">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <Card>
-            <CardHeader><CardTitle className="flex items-center gap-2"><DollarSign/>Current Status</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="flex items-center gap-2"><DollarSign/>{t('current_status')}</CardTitle></CardHeader>
             <CardContent>
                 <p className="text-2xl font-bold text-primary">{batch.status}</p>
                 {batch.currentPrice && <p className="text-xl text-accent-foreground mt-2">${batch.currentPrice.toFixed(2)}</p>}
             </CardContent>
         </Card>
         <Card>
-            <CardHeader><CardTitle className="flex items-center gap-2"><CheckCircle2 />Verification</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="flex items-center gap-2"><CheckCircle2 />{t('verification')}</CardTitle></CardHeader>
             <CardContent className="space-y-2">
-                <p className="flex items-center gap-2 text-sm text-muted-foreground"><Hash className="w-4 h-4" />Blockchain Hash:</p>
+                <p className="flex items-center gap-2 text-sm text-muted-foreground"><Hash className="w-4 h-4" />{t('blockchain_hash')}:</p>
                 <p className="text-xs font-mono break-all bg-muted p-2 rounded-md">{batch.metadataHash}</p>
             </CardContent>
         </Card>

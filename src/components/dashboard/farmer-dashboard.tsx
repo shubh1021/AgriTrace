@@ -34,6 +34,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { useEffect } from 'react';
+import { useLanguage } from '@/context/language-context';
 
 const CreateBatchSchema = z.object({
   productType: z.string().min(2, 'Too short').default('Tomatoes'),
@@ -47,6 +48,7 @@ type CreateBatchValues = z.infer<typeof CreateBatchSchema>;
 function CreateBatchForm({ onBatchCreated }: { onBatchCreated: () => void }) {
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
+  const { t } = useLanguage();
   const form = useForm<CreateBatchValues>({
     resolver: zodResolver(CreateBatchSchema),
     defaultValues: {
@@ -66,9 +68,9 @@ function CreateBatchForm({ onBatchCreated }: { onBatchCreated: () => void }) {
       });
       const result = await createBatchAction(formData);
       if (result.error) {
-        toast({ title: 'Error', description: result.error, variant: 'destructive' });
+        toast({ title: t('error'), description: result.error, variant: 'destructive' });
       } else {
-        toast({ title: 'Success', description: 'New batch created successfully!' });
+        toast({ title: t('success'), description: t('new_batch_created_successfully') });
         form.reset();
         onBatchCreated();
       }
@@ -79,32 +81,32 @@ function CreateBatchForm({ onBatchCreated }: { onBatchCreated: () => void }) {
     <Card className="shadow-lg mb-8">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 font-headline text-2xl">
-          <PlusCircle /> Create New Batch
+          <PlusCircle /> {t('create_new_batch')}
         </CardTitle>
-        <CardDescription>Enter the details for the new produce batch.</CardDescription>
+        <CardDescription>{t('create_new_batch_description')}</CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField name="productType" control={form.control} render={({ field }) => (
-                <FormItem><FormLabel>Product Type</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>{t('product_type')}</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
               )} />
               <FormField name="quantity" control={form.control} render={({ field }) => (
-                <FormItem><FormLabel>Quantity (kg)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>{t('quantity_kg')}</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
               )} />
               <FormField name="location" control={form.control} render={({ field }) => (
-                <FormItem><FormLabel>Harvest Location</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>{t('harvest_location')}</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
               )} />
               <FormField name="harvestDate" control={form.control} render={({ field }) => (
-                <FormItem><FormLabel>Harvest Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>{t('harvest_date')}</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
               )} />
               <FormField name="qualityGrade" control={form.control} render={({ field }) => (
-                <FormItem><FormLabel>Quality Grade</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>{t('quality_grade')}</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
               )} />
             </div>
             <Button type="submit" disabled={isPending} className="w-full md:w-auto" variant="default">
-              {isPending ? <Loader2 className="animate-spin" /> : 'Create Batch'}
+              {isPending ? <Loader2 className="animate-spin" /> : t('create_batch')}
             </Button>
           </form>
         </Form>
@@ -114,17 +116,18 @@ function CreateBatchForm({ onBatchCreated }: { onBatchCreated: () => void }) {
 }
 
 function BatchList({ batches, user }: { batches: Batch[], user: User }) {
+  const { t } = useLanguage();
   return (
     <Card className="shadow-lg">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 font-headline text-2xl">
-          <Sprout /> My Batches
+          <Sprout /> {t('my_batches')}
         </CardTitle>
-        <CardDescription>A list of all produce batches you have created.</CardDescription>
+        <CardDescription>{t('my_batches_description')}</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          {batches.length === 0 ? <p>No batches created yet.</p> : batches.map((batch) => (
+          {batches.length === 0 ? <p>{t('no_batches_created_yet')}</p> : batches.map((batch) => (
             <Card key={batch.id} className="bg-muted/30">
               <CardHeader>
                 <CardTitle className="text-xl">{batch.name}</CardTitle>
@@ -132,20 +135,20 @@ function BatchList({ batches, user }: { batches: Batch[], user: User }) {
               </CardHeader>
               <CardContent className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
-                  <p><strong>Product:</strong> {batch.productType}</p>
-                  <p><strong>Quantity:</strong> {batch.quantity} kg</p>
-                  <p><strong>Status:</strong> <span className="font-semibold text-primary">{batch.status}</span></p>
+                  <p><strong>{t('product')}:</strong> {batch.productType}</p>
+                  <p><strong>{t('quantity')}:</strong> {batch.quantity} kg</p>
+                  <p><strong>{t('status')}:</strong> <span className="font-semibold text-primary">{batch.status}</span></p>
                 </div>
                 <Dialog>
                   <DialogTrigger asChild>
-                    <Button variant="outline"><QrCode className="mr-2" /> Show QR Code</Button>
+                    <Button variant="outline"><QrCode className="mr-2" /> {t('show_qr_code')}</Button>
                   </DialogTrigger>
                   <DialogContent>
                     <DialogHeader>
-                      <DialogTitle>QR Code for {batch.name}</DialogTitle>
+                      <DialogTitle>{t('qr_code_for')} {batch.name}</DialogTitle>
                     </DialogHeader>
                     <QRCodeDisplay url={batch.qrCodeUrl} />
-                    <p className="text-center text-sm text-muted-foreground">Scan to trace this batch</p>
+                    <p className="text-center text-sm text-muted-foreground">{t('scan_to_trace')}</p>
                   </DialogContent>
                 </Dialog>
               </CardContent>

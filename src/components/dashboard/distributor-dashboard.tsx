@@ -38,6 +38,7 @@ import {
   DialogClose
 } from '@/components/ui/dialog';
 import { mockUsers } from '@/lib/data';
+import { useLanguage } from '@/context/language-context';
 
 const ClaimBatchSchema = z.object({
   batchId: z.string().min(1, 'Batch ID is required.'),
@@ -47,6 +48,7 @@ type ClaimBatchValues = z.infer<typeof ClaimBatchSchema>;
 function ClaimBatchForm({ user, onBatchClaimed }: { user: User, onBatchClaimed: () => void }) {
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
+  const { t } = useLanguage();
   const form = useForm<ClaimBatchValues>({
     resolver: zodResolver(ClaimBatchSchema),
     defaultValues: { batchId: '' },
@@ -56,9 +58,9 @@ function ClaimBatchForm({ user, onBatchClaimed }: { user: User, onBatchClaimed: 
     startTransition(async () => {
       const result = await claimBatchAction(values.batchId, user.id);
       if (result.error) {
-        toast({ title: 'Error', description: result.error, variant: 'destructive' });
+        toast({ title: t('error'), description: result.error, variant: 'destructive' });
       } else {
-        toast({ title: 'Success', description: 'Batch claimed successfully!' });
+        toast({ title: t('success'), description: t('batch_claimed_successfully') });
         form.reset();
         onBatchClaimed();
       }
@@ -69,18 +71,18 @@ function ClaimBatchForm({ user, onBatchClaimed }: { user: User, onBatchClaimed: 
      <Card className="shadow-lg mb-8">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 font-headline text-2xl">
-          <ClipboardCheck /> Claim Batch
+          <ClipboardCheck /> {t('claim_batch')}
         </CardTitle>
-        <CardDescription>Enter a batch ID to claim it from a farmer.</CardDescription>
+        <CardDescription>{t('claim_batch_description')}</CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="flex items-start gap-2">
             <FormField name="batchId" control={form.control} render={({ field }) => (
-              <FormItem className="flex-grow"><FormControl><Input placeholder="Enter Batch ID..." {...field} /></FormControl><FormMessage /></FormItem>
+              <FormItem className="flex-grow"><FormControl><Input placeholder={t('enter_batch_id_placeholder')} {...field} /></FormControl><FormMessage /></FormItem>
             )} />
             <Button type="submit" disabled={isPending}>
-              {isPending ? <Loader2 className="animate-spin" /> : 'Claim'}
+              {isPending ? <Loader2 className="animate-spin" /> : t('claim')}
             </Button>
           </form>
         </Form>
@@ -92,19 +94,20 @@ function ClaimBatchForm({ user, onBatchClaimed }: { user: User, onBatchClaimed: 
 function TransferBatchDialog({ batch, user, onBatchTransferred }: { batch: Batch, user: User, onBatchTransferred: () => void }) {
     const [isPending, startTransition] = useTransition();
     const { toast } = useToast();
+    const { t } = useLanguage();
     const retailer = mockUsers.find(u => u.role === 'retailer');
 
     const handleTransfer = () => {
         if (!retailer) {
-            toast({ title: 'Error', description: 'No retailer found to transfer to.', variant: 'destructive'});
+            toast({ title: t('error'), description: t('no_retailer_found'), variant: 'destructive'});
             return;
         }
         startTransition(async () => {
             const result = await transferToRetailerAction(batch.id, user.id, retailer.id);
             if (result.error) {
-                toast({ title: 'Error', description: result.error, variant: 'destructive' });
+                toast({ title: t('error'), description: result.error, variant: 'destructive' });
             } else {
-                toast({ title: 'Success', description: `Batch transferred to ${retailer.name}` });
+                toast({ title: t('success'), description: t('batch_transferred_successfully', { retailerName: retailer.name }) });
                 onBatchTransferred();
             }
         });
@@ -112,20 +115,20 @@ function TransferBatchDialog({ batch, user, onBatchTransferred }: { batch: Batch
 
     return (
         <Dialog>
-            <DialogTrigger asChild><Button><Store className="mr-2" /> Transfer to Retailer</Button></DialogTrigger>
+            <DialogTrigger asChild><Button><Store className="mr-2" /> {t('transfer_to_retailer')}</Button></DialogTrigger>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>Transfer Batch: {batch.name}</DialogTitle>
+                    <DialogTitle>{t('transfer_batch')}: {batch.name}</DialogTitle>
                 </DialogHeader>
                 <div>
-                    <p>You are about to transfer this batch to the retailer:</p>
+                    <p>{t('transfer_to_retailer_confirmation')}</p>
                     <p className="font-bold my-4">{retailer?.name || 'N/A'}</p>
-                    <p className="text-sm text-muted-foreground">This action is irreversible.</p>
+                    <p className="text-sm text-muted-foreground">{t('action_irreversible')}</p>
                 </div>
                 <DialogFooter>
-                    <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
+                    <DialogClose asChild><Button variant="ghost">{t('cancel')}</Button></DialogClose>
                     <Button onClick={handleTransfer} disabled={isPending}>
-                        {isPending ? <Loader2 className="animate-spin" /> : 'Confirm Transfer'}
+                        {isPending ? <Loader2 className="animate-spin" /> : t('confirm_transfer')}
                     </Button>
                 </DialogFooter>
             </DialogContent>
@@ -134,17 +137,18 @@ function TransferBatchDialog({ batch, user, onBatchTransferred }: { batch: Batch
 }
 
 function BatchList({ batches, user, onBatchTransferred }: { batches: Batch[], user: User, onBatchTransferred: () => void }) {
+  const { t } = useLanguage();
   return (
     <Card className="shadow-lg">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 font-headline text-2xl">
-          <Truck /> My Inventory
+          <Truck /> {t('my_inventory')}
         </CardTitle>
-        <CardDescription>Batches you currently have in transit.</CardDescription>
+        <CardDescription>{t('my_inventory_description_distributor')}</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          {batches.length === 0 ? <p>No batches in your inventory.</p> : batches.map((batch) => (
+          {batches.length === 0 ? <p>{t('no_batches_in_inventory')}</p> : batches.map((batch) => (
             <Card key={batch.id} className="bg-muted/30">
               <CardHeader>
                 <CardTitle className="text-xl">{batch.name}</CardTitle>
@@ -152,9 +156,9 @@ function BatchList({ batches, user, onBatchTransferred }: { batches: Batch[], us
               </CardHeader>
               <CardContent className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                  <div>
-                  <p><strong>Product:</strong> {batch.productType}</p>
-                  <p><strong>Quantity:</strong> {batch.quantity} kg</p>
-                  <p><strong>Status:</strong> <span className="font-semibold text-primary">{batch.status}</span></p>
+                  <p><strong>{t('product')}:</strong> {batch.productType}</p>
+                  <p><strong>{t('quantity')}:</strong> {batch.quantity} kg</p>
+                  <p><strong>{t('status')}:</strong> <span className="font-semibold text-primary">{batch.status}</span></p>
                 </div>
                 <TransferBatchDialog batch={batch} user={user} onBatchTransferred={onBatchTransferred} />
               </CardContent>
