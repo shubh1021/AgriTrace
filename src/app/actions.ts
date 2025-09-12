@@ -43,7 +43,7 @@ export async function createBatchAction(formData: FormData) {
       currentOwnerId: farmer.id,
       priceHistory: [],
       metadataHash,
-      qrCodeUrl: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:9002'}/batches/${batchId}`,
+      qrCodeUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/batches/${batchId}`,
     };
 
     batches.unshift(newBatch);
