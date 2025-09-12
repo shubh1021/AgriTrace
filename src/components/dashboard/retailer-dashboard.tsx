@@ -107,7 +107,7 @@ function BatchList({ batches, user, onPriceSet }: { batches: Batch[], user: User
               <CardContent className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
                   <p><strong>{t('product')}:</strong> {batch.productType}</p>
-                  <p><strong>{t('current_price')}:</strong> <span className="font-semibold text-accent-foreground">{batch.currentPrice ? `$${batch.currentPrice.toFixed(2)}` : t('not_set')}</span></p>
+                  <p><strong>{t('current_price')}:</strong> <span className="font-semibold text-accent-foreground">{batch.currentPrice ? `₹${batch.currentPrice.toFixed(2)}` : t('not_set')}</span></p>
                 </div>
                 <SetPriceDialog batch={batch} user={user} onPriceSet={onPriceSet} />
               </CardContent>

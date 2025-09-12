@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import type { BatchDetails, User } from '@/lib/types';
 import { format } from 'date-fns';
+import { getUser } from '@/lib/data';
 
 const StatusIcon = ({ status, isLast }: { status: string, isLast: boolean }) => {
   const Icon = {
@@ -26,7 +27,8 @@ export function BatchTimeline({ details, t }: { details: BatchDetails | null, t:
   if (!details) {
     return null;
   }
-  const { batch, transfers, farmer } = details;
+  const { batch, transfers } = details;
+  const farmer = getUser(batch.farmerId);
   
   const timelineEvents = [];
 
@@ -47,11 +49,13 @@ export function BatchTimeline({ details, t }: { details: BatchDetails | null, t:
 
   // Transfer events
   transfers.forEach(transfer => {
+    const fromUser = getUser(transfer.fromId);
+    const toUser = getUser(transfer.toId);
     timelineEvents.push({
       status: 'Distribution',
-      title: t('transferred_to') + ` ${transfer.toUser?.name || t('unknown')}`,
+      title: t('transferred_to') + ` ${toUser?.name || t('unknown')}`,
       details: [
-        `${t('handled_by')}: ${transfer.fromUser?.name || t('unknown')}`,
+        `${t('handled_by')}: ${fromUser?.name || t('unknown')}`,
         `${t('date')}: ${format(new Date(transfer.timestamp), 'PPP p')}`
       ]
     });
@@ -59,14 +63,14 @@ export function BatchTimeline({ details, t }: { details: BatchDetails | null, t:
 
   // Retail event
   if (batch.status === 'At Retailer' || batch.status === 'Sold') {
-    const retailer = transfers[transfers.length -1]?.toUser;
+    const retailer = transfers[transfers.length -1]?.toId ? getUser(transfers[transfers.length -1]?.toId) : undefined;
     const priceEvent = batch.priceHistory[batch.priceHistory.length -1];
     timelineEvents.push({
       status: 'Retail',
       title: t('stocked_at') + ` ${retailer?.name || t('retailer')}`,
       details: priceEvent ? [
           t('price_set_on') + ` ${format(new Date(priceEvent.timestamp), 'PPP')}`,
-          `${t('price')}: $${priceEvent.price.toFixed(2)}`
+          `${t('price')}: ₹${priceEvent.price.toFixed(2)}`
       ] : [t('awaiting_pricing_information')]
     });
   }
@@ -78,7 +82,7 @@ export function BatchTimeline({ details, t }: { details: BatchDetails | null, t:
             <CardHeader><CardTitle className="flex items-center gap-2"><DollarSign/>{t('current_status')}</CardTitle></CardHeader>
             <CardContent>
                 <p className="text-2xl font-bold text-primary">{batch.status}</p>
-                {batch.currentPrice && <p className="text-xl text-accent-foreground mt-2">${batch.currentPrice.toFixed(2)}</p>}
+                {batch.currentPrice && <p className="text-xl text-accent-foreground mt-2">₹{batch.currentPrice.toFixed(2)}</p>}
             </CardContent>
         </Card>
         <Card>
