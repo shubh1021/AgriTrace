@@ -37,11 +37,11 @@ import { useEffect } from 'react';
 import { useLanguage } from '@/context/language-context';
 
 const CreateBatchSchema = z.object({
-  productType: z.string().min(2, 'Too short').default('Tomatoes'),
-  quantity: z.coerce.number().min(1).default(100),
-  location: z.string().min(2, 'Too short').default('Salinas, CA'),
-  harvestDate: z.string().default('2024-07-30'),
-  qualityGrade: z.string().min(1, 'Required').default('Grade A'),
+  productType: z.string().min(2, 'Too short'),
+  quantity: z.coerce.number().min(1),
+  location: z.string().min(2, 'Too short'),
+  harvestDate: z.string(),
+  qualityGrade: z.string().min(1, 'Required'),
 });
 type CreateBatchValues = z.infer<typeof CreateBatchSchema>;
 
@@ -52,11 +52,11 @@ function CreateBatchForm({ onBatchCreated }: { onBatchCreated: () => void }) {
   const form = useForm<CreateBatchValues>({
     resolver: zodResolver(CreateBatchSchema),
     defaultValues: {
-      productType: 'Tomatoes',
+      productType: '',
       quantity: 100,
-      location: 'Salinas, CA',
+      location: '',
       harvestDate: new Date().toISOString().split('T')[0],
-      qualityGrade: 'Premium',
+      qualityGrade: '',
     },
   });
 
@@ -71,7 +71,13 @@ function CreateBatchForm({ onBatchCreated }: { onBatchCreated: () => void }) {
         toast({ title: t('error'), description: result.error, variant: 'destructive' });
       } else {
         toast({ title: t('success'), description: t('new_batch_created_successfully') });
-        form.reset();
+        form.reset({
+          productType: '',
+          quantity: 100,
+          location: '',
+          harvestDate: new Date().toISOString().split('T')[0],
+          qualityGrade: '',
+        });
         onBatchCreated();
       }
     });
@@ -90,19 +96,19 @@ function CreateBatchForm({ onBatchCreated }: { onBatchCreated: () => void }) {
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField name="productType" control={form.control} render={({ field }) => (
-                <FormItem><FormLabel>{t('product_type')}</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>{t('product_type')}</FormLabel><FormControl><Input {...field} placeholder={t('product_type_placeholder')} /></FormControl><FormMessage /></FormItem>
               )} />
               <FormField name="quantity" control={form.control} render={({ field }) => (
                 <FormItem><FormLabel>{t('quantity_kg')}</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
               )} />
               <FormField name="location" control={form.control} render={({ field }) => (
-                <FormItem><FormLabel>{t('harvest_location')}</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>{t('harvest_location')}</FormLabel><FormControl><Input {...field} placeholder={t('harvest_location_placeholder')} /></FormControl><FormMessage /></FormItem>
               )} />
               <FormField name="harvestDate" control={form.control} render={({ field }) => (
                 <FormItem><FormLabel>{t('harvest_date')}</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
               )} />
               <FormField name="qualityGrade" control={form.control} render={({ field }) => (
-                <FormItem><FormLabel>{t('quality_grade')}</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>{t('quality_grade')}</FormLabel><FormControl><Input {...field} placeholder={t('quality_grade_placeholder')} /></FormControl><FormMessage /></FormItem>
               )} />
             </div>
             <Button type="submit" disabled={isPending} className="w-full md:w-auto" variant="default">
