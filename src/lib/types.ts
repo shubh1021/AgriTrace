@@ -15,6 +15,15 @@ export interface PriceHistory {
 
 export type BatchStatus = 'At Farm' | 'In Transit' | 'At Retailer' | 'Sold';
 
+export interface GradingCertificate {
+  id: string;
+  grade: string;
+  qualityStandards: string;
+  issueDate: string;
+  farmerId: string;
+  certificateHash: string;
+}
+
 export interface Batch {
   id: string; // batchId
   name: string; // From GenAI
@@ -23,13 +32,14 @@ export interface Batch {
   quantity: number;
   harvestDate: string;
   location: string;
-  qualityGrade: string;
+  qualityGrade: string; // From farmer input, becomes part of certificate
   status: BatchStatus;
   metadataHash: string;
   currentOwnerId: string;
   currentPrice?: number;
   priceHistory: PriceHistory[];
   qrCodeUrl: string;
+  gradingCertificate?: GradingCertificate;
 }
 
 export interface Transfer {
@@ -38,6 +48,12 @@ export interface Transfer {
   fromId: string;
   toId: string;
   timestamp: string;
+  receiptHash: string;
+  transportDetails: {
+    mode: string;
+    vehicleNumber: string;
+    driverName: string;
+  };
 }
 
 export type EnrichedTransfer = Transfer & {

@@ -1,7 +1,7 @@
-import { Tractor, Truck, Store, CheckCircle2, DollarSign, Info, Hash } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tractor, Truck, Store, CheckCircle2, DollarSign, Info, Hash, Award, Receipt } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import type { BatchDetails, User } from '@/lib/types';
+import type { BatchDetails, User, EnrichedTransfer } from '@/lib/types';
 import { format } from 'date-fns';
 import { getUser } from '@/lib/data';
 
@@ -23,6 +23,79 @@ const StatusIcon = ({ status, isLast }: { status: string, isLast: boolean }) => 
   );
 };
 
+const FarmEventCard = ({ batch, farmer, t }: { batch: BatchDetails['batch'], farmer: User | undefined, t: (key: string) => string}) => {
+  return (
+    <Card className="relative top-[-8px] shadow-md">
+      <CardHeader>
+        <CardTitle>{t('harvested_by')} {farmer?.name}</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        <p><strong>{t('product')}:</strong> {batch.productType}</p>
+        <p><strong>{t('location')}:</strong> {batch.location}</p>
+        <p><strong>{t('harvest_date')}:</strong> {format(new Date(batch.harvestDate), 'PPP')}</p>
+        <p><strong>{t('quantity')}:</strong> {batch.quantity} kg</p>
+        
+        {batch.gradingCertificate ? (
+          <div className="pt-2 border-t mt-2">
+            <p className="font-semibold flex items-center gap-2"><Award size={16} />{t('quality_certificate')}</p>
+            <p className="text-sm"><strong>{t('grade')}:</strong> {batch.gradingCertificate.grade}</p>
+            <p className="text-sm"><strong>{t('standards')}:</strong> {batch.gradingCertificate.qualityStandards}</p>
+            <p className="text-sm"><strong>{t('issued_on')}:</strong> {format(new Date(batch.gradingCertificate.issueDate), 'PPP')}</p>
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground pt-2 border-t mt-2">{t('no_grading_certificate')}</p>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+const TransferEventCard = ({ transfer, t }: { transfer: EnrichedTransfer, t: (key: string) => string}) => {
+  return (
+     <Card className="relative top-[-8px] shadow-md">
+      <CardHeader>
+        <CardTitle>{t('transferred_from_to', { from: transfer.fromUser?.name || t('unknown'), to: transfer.toUser?.name || t('unknown')})}</CardTitle>
+        <CardDescription>{t('date')}: {format(new Date(transfer.timestamp), 'PPP p')}</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        <div className="pt-2 border-t">
+            <p className="font-semibold flex items-center gap-2"><Receipt size={16} />{t('digital_receipt')}</p>
+            <p className="text-sm"><strong>{t('transport_mode')}:</strong> {transfer.transportDetails.mode}</p>
+            <p className="text-sm"><strong>{t('vehicle_number')}:</strong> {transfer.transportDetails.vehicleNumber}</p>
+            <p className="text-sm"><strong>{t('driver_name')}:</strong> {transfer.transportDetails.driverName}</p>
+        </div>
+         <div className="pt-2 border-t">
+            <p className="text-sm text-muted-foreground">{t('receipt_hash')}:</p>
+            <p className="text-xs font-mono break-all bg-muted p-2 rounded-md">{transfer.receiptHash}</p>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+const RetailEventCard = ({ batch, t }: { batch: BatchDetails['batch'], t: (key: string) => string}) => {
+    const retailer = batch.currentOwnerId ? getUser(batch.currentOwnerId) : undefined;
+    const priceEvent = batch.priceHistory[batch.priceHistory.length - 1];
+
+    return (
+        <Card className="relative top-[-8px] shadow-md">
+            <CardHeader>
+                 <CardTitle>{t('stocked_at')} {retailer?.name || t('retailer')}</CardTitle>
+            </CardHeader>
+            <CardContent>
+            {priceEvent ? (
+                <ul className="list-disc list-inside text-muted-foreground space-y-1">
+                    <li>{t('price_set_on')} {format(new Date(priceEvent.timestamp), 'PPP')}</li>
+                    <li>{t('price')}: ₹{priceEvent.price.toFixed(2)}</li>
+                </ul>
+                ) : (
+                <p>{t('awaiting_pricing_information')}</p>
+            )}
+            </CardContent>
+        </Card>
+    )
+}
+
 export function BatchTimeline({ details, t }: { details: BatchDetails | null, t: (key: string) => string }) {
   if (!details) {
     return null;
@@ -36,42 +109,23 @@ export function BatchTimeline({ details, t }: { details: BatchDetails | null, t:
   if (farmer) {
     timelineEvents.push({
       status: 'Farmed',
-      title: t('harvested_by') + ` ${farmer.name}`,
-      details: [
-        `${t('product')}: ${batch.productType}`,
-        `${t('location')}: ${batch.location}`,
-        `${t('harvest_date')}: ${format(new Date(batch.harvestDate), 'PPP')}`,
-        `${t('quantity')}: ${batch.quantity} kg`,
-        `${t('quality')}: ${batch.qualityGrade}`
-      ]
+      component: <FarmEventCard batch={batch} farmer={farmer} t={t} />
     });
   }
 
   // Transfer events
   transfers.forEach(transfer => {
-    const fromUser = getUser(transfer.fromId);
-    const toUser = getUser(transfer.toId);
     timelineEvents.push({
       status: 'Distribution',
-      title: t('transferred_to') + ` ${toUser?.name || t('unknown')}`,
-      details: [
-        `${t('handled_by')}: ${fromUser?.name || t('unknown')}`,
-        `${t('date')}: ${format(new Date(transfer.timestamp), 'PPP p')}`
-      ]
+      component: <TransferEventCard transfer={transfer} t={t} />
     });
   });
 
   // Retail event
   if (batch.status === 'At Retailer' || batch.status === 'Sold') {
-    const retailer = transfers[transfers.length -1]?.toId ? getUser(transfers[transfers.length -1]?.toId) : undefined;
-    const priceEvent = batch.priceHistory[batch.priceHistory.length -1];
     timelineEvents.push({
-      status: 'Retail',
-      title: t('stocked_at') + ` ${retailer?.name || t('retailer')}`,
-      details: priceEvent ? [
-          t('price_set_on') + ` ${format(new Date(priceEvent.timestamp), 'PPP')}`,
-          `${t('price')}: ₹${priceEvent.price.toFixed(2)}`
-      ] : [t('awaiting_pricing_information')]
+        status: 'Retail',
+        component: <RetailEventCard batch={batch} t={t} />
     });
   }
 
@@ -81,7 +135,7 @@ export function BatchTimeline({ details, t }: { details: BatchDetails | null, t:
         <Card>
             <CardHeader><CardTitle className="flex items-center gap-2"><DollarSign/>{t('current_status')}</CardTitle></CardHeader>
             <CardContent>
-                <p className="text-2xl font-bold text-primary">{batch.status}</p>
+                <p className="text-2xl font-bold text-primary">{t(batch.status.replace(/\s/g, ''))}</p>
                 {batch.currentPrice && <p className="text-xl text-accent-foreground mt-2">₹{batch.currentPrice.toFixed(2)}</p>}
             </CardContent>
         </Card>
@@ -101,16 +155,7 @@ export function BatchTimeline({ details, t }: { details: BatchDetails | null, t:
           <div key={index} className="flex gap-4 md:gap-8">
             <StatusIcon status={event.status} isLast={index === timelineEvents.length - 1} />
             <div className="flex-1 pb-8">
-              <Card className="relative top-[-8px] shadow-md">
-                <CardHeader>
-                  <CardTitle>{event.title}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ul className="list-disc list-inside text-muted-foreground space-y-1">
-                    {event.details.map((detail, i) => <li key={i}>{detail}</li>)}
-                  </ul>
-                </CardContent>
-              </Card>
+              {event.component}
             </div>
           </div>
         ))}

@@ -13,10 +13,10 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { getRetailerBatches, setPriceAction } from '@/app/actions';
-import type { User, Batch } from '@/lib/types';
+import { getRetailerBatches, setPriceAction, getBatchDetails } from '@/app/actions';
+import type { User, Batch, BatchDetails } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
-import { Tag, Store, Loader2 } from 'lucide-react';
+import { Tag, Store, Loader2, Info } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -28,6 +28,8 @@ import {
 } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '../ui/form';
 import { useLanguage } from '@/context/language-context';
+import { BatchTimeline } from '../shared/batch-timeline';
+import { ScrollArea } from '../ui/scroll-area';
 
 const SetPriceSchema = z.object({
   price: z.coerce.number().min(0.01, 'Price must be greater than 0.'),
@@ -86,6 +88,46 @@ function SetPriceDialog({ batch, user, onPriceSet }: { batch: Batch, user: User,
   );
 }
 
+function ViewSourceDetailsDialog({ batchId }: { batchId: string }) {
+    const { t } = useLanguage();
+    const [details, setDetails] = useState<BatchDetails | null>(null);
+    const [isPending, startTransition] = useTransition();
+
+    const handleOpen = (open: boolean) => {
+        if (open && !details) {
+            startTransition(async () => {
+                const data = await getBatchDetails(batchId);
+                setDetails(data);
+            });
+        }
+    }
+    
+    return (
+        <Dialog onOpenChange={handleOpen}>
+            <DialogTrigger asChild>
+                <Button variant="outline"><Info className="mr-2" />{t('view_source_details')}</Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-3xl">
+                <DialogHeader>
+                    <DialogTitle>{t('supply_chain_journey')}</DialogTitle>
+                    <CardDescription>{details?.batch.name}</CardDescription>
+                </DialogHeader>
+                <ScrollArea className="h-[60vh] pr-4">
+                {isPending && <div className="flex justify-center p-8"><Loader2 className="animate-spin" /></div>}
+                {details ? (
+                    <BatchTimeline details={details} t={t} />
+                ) : !isPending ? (
+                    <p>{t('details_not_found')}</p>
+                ) : null}
+                </ScrollArea>
+                <DialogFooter>
+                    <DialogClose asChild><Button>{t('close')}</Button></DialogClose>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    )
+}
+
 function BatchList({ batches, user, onPriceSet }: { batches: Batch[], user: User, onPriceSet: () => void }) {
   const { t } = useLanguage();
   return (
@@ -109,7 +151,10 @@ function BatchList({ batches, user, onPriceSet }: { batches: Batch[], user: User
                   <p><strong>{t('product')}:</strong> {batch.productType}</p>
                   <p><strong>{t('current_price')}:</strong> <span className="font-semibold text-accent-foreground">{batch.currentPrice ? `₹${batch.currentPrice.toFixed(2)}` : t('not_set')}</span></p>
                 </div>
-                <SetPriceDialog batch={batch} user={user} onPriceSet={onPriceSet} />
+                <div className="flex gap-2 flex-wrap">
+                    <ViewSourceDetailsDialog batchId={batch.id} />
+                    <SetPriceDialog batch={batch} user={user} onPriceSet={onPriceSet} />
+                </div>
               </CardContent>
             </Card>
           ))}
@@ -124,6 +169,7 @@ export function RetailerDashboard({ user }: { user: User }) {
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchBatches = async () => {
+    setIsLoading(true);
     const retailerBatches = await getRetailerBatches(user.id);
     setBatches(retailerBatches);
     setIsLoading(false);

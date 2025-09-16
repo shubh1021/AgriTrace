@@ -18,6 +18,7 @@ import {
   FormField,
   FormItem,
   FormMessage,
+  FormLabel,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import {
@@ -27,7 +28,7 @@ import {
 } from '@/app/actions';
 import type { User, Batch } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
-import { QrCode, ClipboardCheck, Truck, Store, Loader2 } from 'lucide-react';
+import { ClipboardCheck, Truck, Store, Loader2 } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -42,6 +43,9 @@ import { useLanguage } from '@/context/language-context';
 
 const ClaimBatchSchema = z.object({
   batchId: z.string().min(1, 'Batch ID is required.'),
+  transportMode: z.string().min(1, 'Required'),
+  vehicleNumber: z.string().min(1, 'Required'),
+  driverName: z.string().min(1, 'Required'),
 });
 type ClaimBatchValues = z.infer<typeof ClaimBatchSchema>;
 
@@ -51,12 +55,21 @@ function ClaimBatchForm({ user, onBatchClaimed }: { user: User, onBatchClaimed: 
   const { t } = useLanguage();
   const form = useForm<ClaimBatchValues>({
     resolver: zodResolver(ClaimBatchSchema),
-    defaultValues: { batchId: '' },
+    defaultValues: { 
+      batchId: '',
+      transportMode: 'Truck',
+      vehicleNumber: '',
+      driverName: '',
+     },
   });
 
   const onSubmit = (values: ClaimBatchValues) => {
     startTransition(async () => {
-      const result = await claimBatchAction(values.batchId, user.id);
+      const formData = new FormData();
+      Object.entries(values).forEach(([key, value]) => {
+        formData.append(key, String(value));
+      });
+      const result = await claimBatchAction(formData, user.id);
       if (result.error) {
         toast({ title: t('error'), description: result.error, variant: 'destructive' });
       } else {
@@ -71,18 +84,32 @@ function ClaimBatchForm({ user, onBatchClaimed }: { user: User, onBatchClaimed: 
      <Card className="shadow-lg mb-8">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 font-headline text-2xl">
-          <ClipboardCheck /> {t('claim_batch')}
+          <ClipboardCheck /> {t('claim_batch_and_generate_receipt')}
         </CardTitle>
-        <CardDescription>{t('claim_batch_description')}</CardDescription>
+        <CardDescription>{t('claim_batch_receipt_description')}</CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="flex items-start gap-2">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField name="batchId" control={form.control} render={({ field }) => (
-              <FormItem className="flex-grow"><FormControl><Input placeholder={t('enter_batch_id_placeholder')} {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>{t('batch_id')}</FormLabel><FormControl><Input placeholder={t('enter_batch_id_placeholder')} {...field} /></FormControl><FormMessage /></FormItem>
             )} />
+             <fieldset className="border p-4 rounded-md">
+                <legend className="text-sm font-medium px-1">{t('transport_details')}</legend>
+                <div className="space-y-4 pt-2">
+                    <FormField name="transportMode" control={form.control} render={({ field }) => (
+                        <FormItem><FormLabel>{t('transport_mode')}</FormLabel><FormControl><Input placeholder={t('e_g_truck_train')} {...field} /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField name="vehicleNumber" control={form.control} render={({ field }) => (
+                        <FormItem><FormLabel>{t('vehicle_number')}</FormLabel><FormControl><Input placeholder={t('e_g_ca_1234_xy')} {...field} /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField name="driverName" control={form.control} render={({ field }) => (
+                        <FormItem><FormLabel>{t('driver_name')}</FormLabel><FormControl><Input placeholder={t('e_g_john_smith')} {...field} /></FormControl><FormMessage /></FormItem>
+                    )} />
+                </div>
+            </fieldset>
             <Button type="submit" disabled={isPending}>
-              {isPending ? <Loader2 className="animate-spin" /> : t('claim')}
+              {isPending ? <Loader2 className="animate-spin" /> : t('claim_and_generate')}
             </Button>
           </form>
         </Form>
@@ -175,6 +202,7 @@ export function DistributorDashboard({ user }: { user: User }) {
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchBatches = async () => {
+    setIsLoading(true);
     const distributorBatches = await getDistributorBatches(user.id);
     setBatches(distributorBatches);
     setIsLoading(false);

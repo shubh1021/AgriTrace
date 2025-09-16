@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import { generateDescriptiveBatchName } from '@/ai/flows/generate-descriptive-batch-name';
 import { batches, transfers, mockUsers, getUser } from '@/lib/data';
-import type { Batch, BatchDetails, EnrichedTransfer, User, Transfer } from '@/lib/types';
+import type { Batch, BatchDetails, EnrichedTransfer, User, Transfer, GradingCertificate } from '@/lib/types';
 import { createHash } from 'crypto';
 
 const CreateBatchSchema = z.object({
@@ -55,11 +55,70 @@ export async function createBatchAction(formData: FormData) {
   }
 }
 
+const AddCertificateSchema = z.object({
+  batchId: z.string(),
+  grade: z.string().min(1, "Grade is required."),
+  qualityStandards: z.string().min(1, "Quality standard is required."),
+});
+
+export async function addGradingCertificateAction(formData: FormData) {
+  const rawFormData = Object.fromEntries(formData.entries());
+  const validatedFields = AddCertificateSchema.safeParse(rawFormData);
+  
+  if (!validatedFields.success) {
+    return { error: 'Invalid certificate data.' };
+  }
+  
+  const { batchId, grade, qualityStandards } = validatedFields.data;
+  const batch = batches.find(b => b.id === batchId);
+  if (!batch) return { error: 'Batch not found.' };
+
+  const farmer = getUser(batch.farmerId);
+  if (!farmer) return { error: 'Farmer not found.' };
+  
+  const certificateId = `cert_${batch.id}`;
+  const issueDate = new Date().toISOString();
+
+  const certificateDataString = JSON.stringify({ ...validatedFields.data, issueDate, farmerId: farmer.id });
+  const certificateHash = createHash('sha256').update(certificateDataString).digest('hex');
+
+  const newCertificate: GradingCertificate = {
+    id: certificateId,
+    ...validatedFields.data,
+    issueDate,
+    farmerId: farmer.id,
+    certificateHash,
+  };
+
+  batch.gradingCertificate = newCertificate;
+  // Also update qualityGrade on the batch itself
+  batch.qualityGrade = grade;
+
+  revalidatePath('/');
+  return { success: true, certificate: newCertificate };
+}
+
 export async function getFarmerBatches(farmerId: string) {
   return batches.filter(b => b.farmerId === farmerId);
 }
 
-export async function claimBatchAction(batchId: string, distributorId: string) {
+
+const ClaimBatchSchema = z.object({
+  batchId: z.string().min(1, 'Batch ID is required.'),
+  transportMode: z.string().min(1, 'Transport mode is required.'),
+  vehicleNumber: z.string().min(1, 'Vehicle number is required.'),
+  driverName: z.string().min(1, 'Driver name is required.'),
+});
+
+export async function claimBatchAction(formData: FormData, distributorId: string) {
+    const rawFormData = Object.fromEntries(formData.entries());
+    const validatedFields = ClaimBatchSchema.safeParse(rawFormData);
+    if (!validatedFields.success) {
+        return { error: 'Invalid data provided.' };
+    }
+
+    const { batchId, transportMode, vehicleNumber, driverName } = validatedFields.data;
+    
     const batch = batches.find(b => b.id === batchId);
     if (!batch) return { error: 'Batch not found.' };
     if (batch.status !== 'At Farm') return { error: 'Batch is not available for claim.' };
@@ -67,12 +126,31 @@ export async function claimBatchAction(batchId: string, distributorId: string) {
     batch.status = 'In Transit';
     batch.currentOwnerId = distributorId;
 
-    const transfer: Transfer = {
-        id: `transfer_${Date.now()}`,
+    const transferId = `transfer_${Date.now()}`;
+    const timestamp = new Date().toISOString();
+    const receiptData = {
         batchId,
         fromId: batch.farmerId,
         toId: distributorId,
-        timestamp: new Date().toISOString(),
+        timestamp,
+        quantity: batch.quantity,
+        productName: batch.productType,
+        transportDetails: {
+            mode: transportMode,
+            vehicleNumber,
+            driverName
+        }
+    };
+    const receiptHash = createHash('sha256').update(JSON.stringify(receiptData)).digest('hex');
+
+    const transfer: Transfer = {
+        id: transferId,
+        batchId,
+        fromId: batch.farmerId,
+        toId: distributorId,
+        timestamp,
+        receiptHash,
+        transportDetails: receiptData.transportDetails,
     };
     transfers.push(transfer);
     revalidatePath('/');
@@ -90,16 +168,35 @@ export async function transferToRetailerAction(batchId: string, fromDistributorI
     
     const retailer = mockUsers.find(u => u.id === toRetailerId && u.role === 'retailer');
     if (!retailer) return { error: 'Retailer not found.' };
+    
+    // Find the original transfer to the distributor to copy transport details
+    const originalTransfer = transfers.find(t => t.batchId === batchId && t.toId === fromDistributorId);
+    if (!originalTransfer) return { error: 'Original transfer not found.' };
 
     batch.status = 'At Retailer';
     batch.currentOwnerId = toRetailerId;
 
-    const transfer: Transfer = {
-        id: `transfer_${Date.now()}`,
+    const transferId = `transfer_${Date.now()}`;
+    const timestamp = new Date().toISOString();
+    const receiptData = {
         batchId,
         fromId: fromDistributorId,
         toId: toRetailerId,
-        timestamp: new Date().toISOString(),
+        timestamp,
+        quantity: batch.quantity,
+        productName: batch.productType,
+        transportDetails: originalTransfer.transportDetails // Carry over transport details
+    };
+    const receiptHash = createHash('sha256').update(JSON.stringify(receiptData)).digest('hex');
+
+    const transfer: Transfer = {
+        id: transferId,
+        batchId,
+        fromId: fromDistributorId,
+        toId: toRetailerId,
+        timestamp,
+        receiptHash,
+        transportDetails: receiptData.transportDetails,
     };
     transfers.push(transfer);
 
