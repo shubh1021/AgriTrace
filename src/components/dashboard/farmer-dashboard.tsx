@@ -77,15 +77,12 @@ function AiAssistantDialog({
 
   const processResponse = (text: string) => {
     if (!text) return;
+    const userMessage: ConversationMessage = { role: 'user', content: text };
+    setMessages([...messages, userMessage]);
+
     startAssistantTransition(async () => {
       try {
-        const newMessages: ConversationMessage[] = [
-          ...messages,
-          { role: 'user', content: text },
-        ];
-        setMessages(newMessages);
-
-        const result = await batchCreationAssistant({ history: newMessages });
+        const result = await batchCreationAssistant({ history: [...messages, userMessage] });
 
         setMessages((prev) => [
           ...prev,
