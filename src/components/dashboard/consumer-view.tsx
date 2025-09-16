@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -21,13 +21,15 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { useSearchParams } from 'next/navigation';
-import { ScanLine, Loader2, FileQuestion } from 'lucide-react';
+import { ScanLine, Loader2, FileQuestion, Volume2 } from 'lucide-react';
 import { useLanguage } from '@/context/language-context';
 import { useEffect } from 'react';
 import { getBatchDetails } from '@/app/actions';
+import { textToSpeech } from '@/ai/flows/text-to-speech';
 import type { BatchDetails } from '@/lib/types';
 import { BatchTimeline } from '../shared/batch-timeline';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
+import { format } from 'date-fns';
 
 const TraceBatchSchema = z.object({
   batchId: z.string().min(1, 'Batch ID is required.'),
@@ -38,8 +40,10 @@ export function ConsumerView() {
   const searchParams = useSearchParams();
   const { t } = useLanguage();
   const [isPending, startTransition] = useTransition();
+  const [isSynthesizing, startSynthesizingTransition] = useTransition();
   const [details, setDetails] = useState<BatchDetails | null>(null);
   const [notFound, setNotFound] = useState(false);
+  const audioRef = useRef<HTMLAudioElement>(null);
   
   const form = useForm<TraceBatchValues>({
     resolver: zodResolver(TraceBatchSchema),
@@ -67,6 +71,33 @@ export function ConsumerView() {
       onSubmit({ batchId });
     }
   }, [searchParams, form]);
+
+  const handleReadAloud = () => {
+    if (!details) return;
+
+    startSynthesizingTransition(async () => {
+      try {
+        const { batch } = details;
+        const textToRead = `
+          Batch Name: ${batch.name}.
+          Product Type: ${batch.productType}.
+          Quantity: ${batch.quantity} kilograms.
+          Harvest Location: ${batch.location}.
+          Harvest Date: ${format(new Date(batch.harvestDate), 'PPP')}.
+          Quality Grade: ${batch.qualityGrade}.
+          Current Status: ${batch.status}.
+          ${batch.currentPrice ? `Current Price: ₹${batch.currentPrice.toFixed(2)}` : ''}
+        `;
+        const { media } = await textToSpeech(textToRead);
+        if (audioRef.current) {
+          audioRef.current.src = media;
+          audioRef.current.play();
+        }
+      } catch (error) {
+        console.error('Failed to synthesize speech', error);
+      }
+    });
+  };
 
 
   return (
@@ -107,14 +138,20 @@ export function ConsumerView() {
       {details && (
         <Card className="w-full max-w-4xl mx-auto shadow-2xl">
             <CardHeader className="text-center">
-            <CardTitle className="font-headline text-4xl">{details.batch.name}</CardTitle>
-            <CardDescription className="text-lg">{t('supply_chain_journey')}</CardDescription>
+              <div className="flex justify-center items-center gap-4">
+                <CardTitle className="font-headline text-4xl">{details.batch.name}</CardTitle>
+                <Button onClick={handleReadAloud} variant="ghost" size="icon" disabled={isSynthesizing}>
+                  {isSynthesizing ? <Loader2 className="animate-spin" /> : <Volume2 />}
+                </Button>
+              </div>
+              <CardDescription className="text-lg">{t('supply_chain_journey')}</CardDescription>
             </CardHeader>
             <CardContent>
-            <BatchTimeline details={details} t={t} />
+              <BatchTimeline details={details} t={t} />
             </CardContent>
         </Card>
       )}
+      <audio ref={audioRef} className="hidden" />
     </div>
   );
 }
