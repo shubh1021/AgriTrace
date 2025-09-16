@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useRef, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -35,8 +35,10 @@ import {
   DialogFooter,
   DialogClose,
 } from '@/components/ui/dialog';
-import { useEffect } from 'react';
 import { useLanguage } from '@/context/language-context';
+import { batchCreationAssistant, type BatchCreationAssistantMessage } from '@/ai/flows/batch-creation-assistant';
+import { ScrollArea } from '../ui/scroll-area';
+import { Textarea } from '../ui/textarea';
 
 const CreateBatchSchema = z.object({
   productType: z.string().min(2, 'Too short'),
@@ -49,12 +51,73 @@ type CreateBatchValues = z.infer<typeof CreateBatchSchema>;
 
 function AiAssistantDialog({
   onBatchCreated,
+  form,
 }: {
   onBatchCreated: () => void;
+  form: any;
 }) {
   const { t } = useLanguage();
+  const [isAssistantLoading, setAssistantLoading] = useState(false);
+  const [conversation, setConversation] = useState<BatchCreationAssistantMessage[]>([]);
+  const [userInput, setUserInput] = useState('');
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (scrollAreaRef.current) {
+      scrollAreaRef.current.scrollTo({
+        top: scrollAreaRef.current.scrollHeight,
+        behavior: 'smooth',
+      });
+    }
+  }, [conversation]);
+
+  const handleStartConversation = async () => {
+    setConversation([]);
+    setAssistantLoading(true);
+    const result = await batchCreationAssistant([]);
+    if (result.response) {
+      setConversation([{ role: 'model', content: result.response }]);
+    }
+    setAssistantLoading(false);
+  };
+  
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!userInput.trim()) return;
+
+    const newConversation: BatchCreationAssistantMessage[] = [
+      ...conversation,
+      { role: 'user', content: userInput },
+    ];
+    setConversation(newConversation);
+    setUserInput('');
+    setAssistantLoading(true);
+
+    const result = await batchCreationAssistant(newConversation);
+    
+    if (result.extractedData) {
+      Object.entries(result.extractedData).forEach(([key, value]) => {
+        if (value) {
+          form.setValue(key, value, { shouldValidate: true });
+        }
+      });
+    }
+    
+    if (result.response) {
+      setConversation(prev => [...prev, { role: 'model', content: result.response! }]);
+    }
+    
+    if (result.isComplete) {
+       toast({ title: "Form Complete!", description: "The form has been filled with the extracted details."});
+       // Maybe close the dialog after a delay? Or have a button to close.
+    }
+
+    setAssistantLoading(false);
+  };
+
+
   return (
-    <Dialog>
+    <Dialog onOpenChange={(open) => { if (open) handleStartConversation() }}>
       <DialogTrigger asChild>
         <Button variant="outline">
           <Mic className="mr-2" /> {t('create_with_ai_assistant')}
@@ -65,9 +128,44 @@ function AiAssistantDialog({
           <DialogTitle>{t('ai_batch_creation_assistant')}</DialogTitle>
           <CardDescription>{t('ai_assistant_description')}</CardDescription>
         </DialogHeader>
-        <div className="mt-4 h-96 flex items-center justify-center bg-muted/50 rounded-lg">
-            <p className="text-muted-foreground">{t('voice_assistant_feature_coming_soon')}</p>
+
+        <div className="mt-4 border rounded-lg p-4 space-y-4 h-[28rem] flex flex-col">
+          <ScrollArea className="flex-1 pr-4" ref={scrollAreaRef}>
+            <div className="space-y-4">
+            {conversation.map((msg, index) => (
+              <div key={index} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div className={`p-3 rounded-lg max-w-[80%] ${msg.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
+                  {msg.content}
+                </div>
+              </div>
+            ))}
+            {isAssistantLoading && (
+              <div className="flex justify-start">
+                  <div className="p-3 rounded-lg bg-muted">
+                      <Loader2 className="animate-spin h-5 w-5"/>
+                  </div>
+              </div>
+            )}
+            </div>
+          </ScrollArea>
+          <form onSubmit={handleSendMessage} className="flex items-center gap-2 pt-4 border-t">
+              <Textarea 
+                value={userInput}
+                onChange={(e) => setUserInput(e.target.value)}
+                placeholder="Type your response..."
+                className="flex-grow"
+                rows={1}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendMessage(e);
+                  }
+                }}
+              />
+              <Button type="submit" disabled={isAssistantLoading}>Send</Button>
+          </form>
         </div>
+
         <DialogFooter>
           <DialogClose asChild>
             <Button variant="ghost">{t('close')}</Button>
@@ -148,7 +246,7 @@ function CreateBatchForm({ onBatchCreated }: { onBatchCreated: () => void }) {
               <Button type="submit" disabled={isPending} variant="default">
                 {isPending ? <Loader2 className="animate-spin" /> : t('create_batch')}
               </Button>
-              <AiAssistantDialog onBatchCreated={onBatchCreated} />
+              <AiAssistantDialog onBatchCreated={onBatchCreated} form={form}/>
             </div>
           </form>
         </Form>
