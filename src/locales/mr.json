@@ -79,6 +79,7 @@
   "create_with_ai_assistant": "एआय सहाय्यकासह तयार करा",
   "ai_batch_creation_assistant": "एआय बॅच निर्मिती सहाय्यक",
   "ai_assistant_description": "नवीन बॅच तयार करण्यासाठी तुमचा आवाज वापरा.",
+  "ai_assistant_description_conversational": "बॅचचे तपशील भरण्यासाठी सहाय्यकाशी बोला.",
   "voice_assistant_feature_coming_soon": "व्हॉइस असिस्टंट फीचर लवकरच येत आहे.",
   "close": "बंद करा"
 }

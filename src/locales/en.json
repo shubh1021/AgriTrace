@@ -79,6 +79,7 @@
   "create_with_ai_assistant": "Create with AI Assistant",
   "ai_batch_creation_assistant": "AI Batch Creation Assistant",
   "ai_assistant_description": "Use your voice to create a new batch.",
+  "ai_assistant_description_conversational": "Talk to the assistant to fill out the batch details.",
   "voice_assistant_feature_coming_soon": "Voice assistant feature coming soon.",
   "close": "Close"
 }

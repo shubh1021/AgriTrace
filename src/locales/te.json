@@ -79,6 +79,7 @@
   "create_with_ai_assistant": "AI సహాయకుడితో సృష్టించండి",
   "ai_batch_creation_assistant": "AI బ్యాచ్ సృష్టి సహాయకుడు",
   "ai_assistant_description": "కొత్త బ్యాచ్‌ను సృష్టించడానికి మీ వాయిస్‌ని ఉపయోగించండి.",
+  "ai_assistant_description_conversational": "బ్యాచ్ వివరాలు నింపడానికి సహాయకుడితో మాట్లాడండి.",
   "voice_assistant_feature_coming_soon": "వాయిస్ అసిస్టెంట్ ఫీచర్ త్వరలో వస్తుంది.",
   "close": "మూసివేయి"
 }

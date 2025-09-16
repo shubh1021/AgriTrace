@@ -37,8 +37,8 @@ import {
 } from '@/components/ui/dialog';
 import { useLanguage } from '@/context/language-context';
 import { batchCreationAssistant, type BatchCreationAssistantMessage } from '@/ai/flows/batch-creation-assistant';
+import { textToSpeech } from '@/ai/flows/text-to-speech';
 import { ScrollArea } from '../ui/scroll-area';
-import { Textarea } from '../ui/textarea';
 
 const CreateBatchSchema = z.object({
   productType: z.string().min(2, 'Too short'),
@@ -59,8 +59,12 @@ function AiAssistantDialog({
   const { t } = useLanguage();
   const [isAssistantLoading, setAssistantLoading] = useState(false);
   const [conversation, setConversation] = useState<BatchCreationAssistantMessage[]>([]);
-  const [userInput, setUserInput] = useState('');
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Speech Recognition state
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<any>(null);
 
   useEffect(() => {
     if (scrollAreaRef.current) {
@@ -71,51 +75,108 @@ function AiAssistantDialog({
     }
   }, [conversation]);
 
+  const processResponse = async (text: string) => {
+    const newConversation: BatchCreationAssistantMessage[] = [
+      ...conversation,
+      { role: 'user', content: text },
+    ];
+    setConversation(newConversation);
+    setAssistantLoading(true);
+
+    try {
+      const result = await batchCreationAssistant(newConversation);
+      
+      if (result.extractedData) {
+        Object.entries(result.extractedData).forEach(([key, value]) => {
+          if (value) {
+            form.setValue(key, value, { shouldValidate: true });
+          }
+        });
+      }
+      
+      if (result.response) {
+        setConversation(prev => [...prev, { role: 'model', content: result.response! }]);
+        const { audio } = await textToSpeech(result.response);
+        if (audioRef.current) {
+          audioRef.current.src = audio;
+          audioRef.current.play();
+        }
+      }
+      
+      if (result.isComplete) {
+         toast({ title: "Form Complete!", description: "The form has been filled with the extracted details."});
+      }
+    } catch (error) {
+      console.error("Error processing response:", error);
+      toast({ title: "Error", description: "Something went wrong.", variant: "destructive" });
+    } finally {
+      setAssistantLoading(false);
+    }
+  };
+  
+  const handleToggleListening = () => {
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setIsListening(false);
+    } else {
+      startListening();
+    }
+  };
+
+  const startListening = () => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      toast({ title: "Browser not supported", description: "Speech recognition is not supported in this browser.", variant: "destructive" });
+      return;
+    }
+    
+    recognitionRef.current = new SpeechRecognition();
+    recognitionRef.current.continuous = false;
+    recognitionRef.current.interimResults = false;
+    recognitionRef.current.lang = 'en-US';
+
+    recognitionRef.current.onstart = () => {
+      setIsListening(true);
+    };
+
+    recognitionRef.current.onend = () => {
+      setIsListening(false);
+    };
+
+    recognitionRef.current.onerror = (event: any) => {
+      console.error('Speech recognition error', event.error);
+      toast({ title: "Recognition Error", description: event.error, variant: "destructive" });
+    };
+
+    recognitionRef.current.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      processResponse(transcript);
+    };
+
+    recognitionRef.current.start();
+  };
+
   const handleStartConversation = async () => {
     setConversation([]);
     setAssistantLoading(true);
-    const result = await batchCreationAssistant([]);
-    if (result.response) {
-      setConversation([{ role: 'model', content: result.response }]);
+    try {
+      const result = await batchCreationAssistant([]);
+      if (result.response) {
+        setConversation([{ role: 'model', content: result.response }]);
+        const { audio } = await textToSpeech(result.response);
+        if (audioRef.current) {
+          audioRef.current.src = audio;
+          audioRef.current.play();
+        }
+      }
+    } catch (error) {
+      console.error("Error starting conversation:", error);
+      toast({ title: "Error", description: "Could not start the assistant.", variant: "destructive" });
+    } finally {
+      setAssistantLoading(false);
     }
-    setAssistantLoading(false);
   };
   
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!userInput.trim()) return;
-
-    const newConversation: BatchCreationAssistantMessage[] = [
-      ...conversation,
-      { role: 'user', content: userInput },
-    ];
-    setConversation(newConversation);
-    setUserInput('');
-    setAssistantLoading(true);
-
-    const result = await batchCreationAssistant(newConversation);
-    
-    if (result.extractedData) {
-      Object.entries(result.extractedData).forEach(([key, value]) => {
-        if (value) {
-          form.setValue(key, value, { shouldValidate: true });
-        }
-      });
-    }
-    
-    if (result.response) {
-      setConversation(prev => [...prev, { role: 'model', content: result.response! }]);
-    }
-    
-    if (result.isComplete) {
-       toast({ title: "Form Complete!", description: "The form has been filled with the extracted details."});
-       // Maybe close the dialog after a delay? Or have a button to close.
-    }
-
-    setAssistantLoading(false);
-  };
-
-
   return (
     <Dialog onOpenChange={(open) => { if (open) handleStartConversation() }}>
       <DialogTrigger asChild>
@@ -126,7 +187,7 @@ function AiAssistantDialog({
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>{t('ai_batch_creation_assistant')}</DialogTitle>
-          <CardDescription>{t('ai_assistant_description')}</CardDescription>
+          <CardDescription>{t('ai_assistant_description_conversational')}</CardDescription>
         </DialogHeader>
 
         <div className="mt-4 border rounded-lg p-4 space-y-4 h-[28rem] flex flex-col">
@@ -148,22 +209,11 @@ function AiAssistantDialog({
             )}
             </div>
           </ScrollArea>
-          <form onSubmit={handleSendMessage} className="flex items-center gap-2 pt-4 border-t">
-              <Textarea 
-                value={userInput}
-                onChange={(e) => setUserInput(e.target.value)}
-                placeholder="Type your response..."
-                className="flex-grow"
-                rows={1}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSendMessage(e);
-                  }
-                }}
-              />
-              <Button type="submit" disabled={isAssistantLoading}>Send</Button>
-          </form>
+          <div className="flex items-center justify-center pt-4 border-t">
+              <Button onClick={handleToggleListening} size="icon" className={`rounded-full h-16 w-16 ${isListening ? 'bg-red-500 hover:bg-red-600' : 'bg-primary'}`}>
+                <Mic className="h-8 w-8" />
+              </Button>
+          </div>
         </div>
 
         <DialogFooter>
@@ -171,6 +221,7 @@ function AiAssistantDialog({
             <Button variant="ghost">{t('close')}</Button>
           </DialogClose>
         </DialogFooter>
+        <audio ref={audioRef} className="hidden" />
       </DialogContent>
     </Dialog>
   );
