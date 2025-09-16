@@ -63,8 +63,18 @@ function AiAssistantDialog({
   const { toast } = useToast();
   const [isRecording, setIsRecording] = useState(false);
   const recognitionRef = useRef<any>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
   
+  const speak = (text: string) => {
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'en-US';
+      window.speechSynthesis.speak(utterance);
+    }
+  };
+
   const processResponse = (text: string) => {
+    if (!text) return;
     startAssistantTransition(async () => {
       try {
         const newMessages: ConversationMessage[] = [
@@ -74,11 +84,13 @@ function AiAssistantDialog({
         setMessages(newMessages);
 
         const result = await batchCreationAssistant({ history: newMessages });
-        
+
         setMessages((prev) => [
           ...prev,
           { role: 'assistant', content: result.responseText },
         ]);
+        
+        speak(result.responseText);
         
         if (result.isComplete) {
             stopRecording();
@@ -125,6 +137,7 @@ function AiAssistantDialog({
   useEffect(() => {
     if (!isOpen) {
       stopRecording();
+      window.speechSynthesis?.cancel();
       return;
     }
     
@@ -138,18 +151,11 @@ function AiAssistantDialog({
 
       recognition.onresult = (event) => {
         const transcript = event.results[event.results.length - 1][0].transcript.trim();
-        if (transcript) {
-          processResponse(transcript);
-        }
+        processResponse(transcript);
       };
       
       recognition.onend = () => {
          setIsRecording(false);
-         // Automatically restart listening if not complete
-         const isComplete = messages.some(m => m.role === 'assistant' && m.content.includes('Great, I have all the details'));
-         if (isOpen && !isComplete) {
-            startRecording();
-         }
       };
 
       recognition.onerror = (event) => {
@@ -169,9 +175,10 @@ function AiAssistantDialog({
     setMessages([]);
     startAssistantTransition(async () => {
         try {
-            const result = await batchCreationassistant({ history: [] });
-            setMessages([{ role: 'assistant', content: result.responseText }]);
-            startRecording();
+            const result = await batchCreationAssistant({ history: [] });
+            const initialMessage = { role: 'assistant', content: result.responseText };
+            setMessages([initialMessage]);
+            speak(initialMessage.content);
         } catch (e) {
             toast({title: "Assistant Error", description: "Could not start the AI assistant."})
         }
@@ -179,6 +186,7 @@ function AiAssistantDialog({
 
     return () => {
         stopRecording();
+        window.speechSynthesis?.cancel();
     }
   }, [isOpen]);
 
@@ -401,5 +409,3 @@ export function FarmerDashboard({ user }: { user: User }) {
     </div>
   );
 }
-
-    
