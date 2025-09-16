@@ -65,11 +65,7 @@ If the conversation has just started (history is empty), greet the user and ask 
 
 Conversation History:
 {{#each history}}
-  {{#if (this.role == 'user')}}
-    User: {{{this.content}}}
-  {{else}}
-    Assistant: {{{this.content}}}
-  {{/if}}
+  {{role}}: {{{content}}}
 {{/each}}
 `,
 });
