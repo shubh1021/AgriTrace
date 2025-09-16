@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition, useRef, useEffect } from 'react';
+import { useState, useTransition, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -24,7 +24,7 @@ import { Input } from '@/components/ui/input';
 import { createBatchAction, getFarmerBatches } from '@/app/actions';
 import type { User, Batch } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
-import { QrCode, PlusCircle, Sprout, Loader2, Mic } from 'lucide-react';
+import { QrCode, PlusCircle, Sprout, Loader2 } from 'lucide-react';
 import { QRCodeDisplay } from '../shared/qr-code-display';
 import {
   Dialog,
@@ -32,13 +32,8 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-  DialogFooter,
-  DialogClose,
 } from '@/components/ui/dialog';
 import { useLanguage } from '@/context/language-context';
-import { batchCreationAssistant, type BatchCreationAssistantMessage } from '@/ai/flows/batch-creation-assistant';
-import { textToSpeech } from '@/ai/flows/text-to-speech';
-import { ScrollArea } from '../ui/scroll-area';
 
 const CreateBatchSchema = z.object({
   productType: z.string().min(2, 'Too short'),
@@ -48,185 +43,6 @@ const CreateBatchSchema = z.object({
   qualityGrade: z.string().min(1, 'Required'),
 });
 type CreateBatchValues = z.infer<typeof CreateBatchSchema>;
-
-function AiAssistantDialog({
-  onBatchCreated,
-  form,
-}: {
-  onBatchCreated: () => void;
-  form: any;
-}) {
-  const { t } = useLanguage();
-  const { toast } = useToast();
-  const [isAssistantLoading, setAssistantLoading] = useState(false);
-  const [conversation, setConversation] = useState<BatchCreationAssistantMessage[]>([]);
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-
-  // Speech Recognition state
-  const [isListening, setIsListening] = useState(false);
-  const recognitionRef = useRef<any>(null);
-
-  useEffect(() => {
-    if (scrollAreaRef.current) {
-      scrollAreaRef.current.scrollTo({
-        top: scrollAreaRef.current.scrollHeight,
-        behavior: 'smooth',
-      });
-    }
-  }, [conversation]);
-
-  const processResponse = async (text: string) => {
-    const newConversation: BatchCreationAssistantMessage[] = [
-      ...conversation,
-      { role: 'user', content: text },
-    ];
-    setConversation(newConversation);
-    setAssistantLoading(true);
-
-    try {
-      const result = await batchCreationAssistant(newConversation);
-      
-      if (result.extractedData) {
-        Object.entries(result.extractedData).forEach(([key, value]) => {
-          if (value) {
-            form.setValue(key, value, { shouldValidate: true });
-          }
-        });
-      }
-      
-      if (result.response) {
-        setConversation(prev => [...prev, { role: 'model', content: result.response! }]);
-        const { audio } = await textToSpeech(result.response);
-        if (audioRef.current) {
-          audioRef.current.src = audio;
-          audioRef.current.play();
-        }
-      }
-      
-      if (result.isComplete) {
-         toast({ title: "Form Complete!", description: "The form has been filled with the extracted details."});
-      }
-    } catch (error) {
-      console.error("Error processing response:", error);
-      toast({ title: "Error", description: "Something went wrong.", variant: "destructive" });
-    } finally {
-      setAssistantLoading(false);
-    }
-  };
-  
-  const handleToggleListening = () => {
-    if (isListening) {
-      recognitionRef.current?.stop();
-      setIsListening(false);
-    } else {
-      startListening();
-    }
-  };
-
-  const startListening = () => {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      toast({ title: "Browser not supported", description: "Speech recognition is not supported in this browser.", variant: "destructive" });
-      return;
-    }
-    
-    recognitionRef.current = new SpeechRecognition();
-    recognitionRef.current.continuous = false;
-    recognitionRef.current.interimResults = false;
-    recognitionRef.current.lang = 'en-US';
-
-    recognitionRef.current.onstart = () => {
-      setIsListening(true);
-    };
-
-    recognitionRef.current.onend = () => {
-      setIsListening(false);
-    };
-
-    recognitionRef.current.onerror = (event: any) => {
-      console.error('Speech recognition error', event.error);
-      toast({ title: "Recognition Error", description: event.error, variant: "destructive" });
-    };
-
-    recognitionRef.current.onresult = (event: any) => {
-      const transcript = event.results[0][0].transcript;
-      processResponse(transcript);
-    };
-
-    recognitionRef.current.start();
-  };
-
-  const handleStartConversation = async () => {
-    setConversation([]);
-    setAssistantLoading(true);
-    try {
-      const result = await batchCreationAssistant([]);
-      if (result.response) {
-        setConversation([{ role: 'model', content: result.response }]);
-        const { audio } = await textToSpeech(result.response);
-        if (audioRef.current) {
-          audioRef.current.src = audio;
-          audioRef.current.play();
-        }
-      }
-    } catch (error) {
-      console.error("Error starting conversation:", error);
-      toast({ title: "Error", description: "Could not start the assistant.", variant: "destructive" });
-    } finally {
-      setAssistantLoading(false);
-    }
-  };
-  
-  return (
-    <Dialog onOpenChange={(open) => { if (open) handleStartConversation() }}>
-      <DialogTrigger asChild>
-        <Button variant="outline">
-          <Mic className="mr-2" /> {t('create_with_ai_assistant')}
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>{t('ai_batch_creation_assistant')}</DialogTitle>
-          <CardDescription>{t('ai_assistant_description_conversational')}</CardDescription>
-        </DialogHeader>
-
-        <div className="mt-4 border rounded-lg p-4 space-y-4 h-[28rem] flex flex-col">
-          <ScrollArea className="flex-1 pr-4" ref={scrollAreaRef}>
-            <div className="space-y-4">
-            {conversation.map((msg, index) => (
-              <div key={index} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`p-3 rounded-lg max-w-[80%] ${msg.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
-                  {msg.content}
-                </div>
-              </div>
-            ))}
-            {isAssistantLoading && (
-              <div className="flex justify-start">
-                  <div className="p-3 rounded-lg bg-muted">
-                      <Loader2 className="animate-spin h-5 w-5"/>
-                  </div>
-              </div>
-            )}
-            </div>
-          </ScrollArea>
-          <div className="flex items-center justify-center pt-4 border-t">
-              <Button onClick={handleToggleListening} size="icon" className={`rounded-full h-16 w-16 ${isListening ? 'bg-red-500 hover:bg-red-600' : 'bg-primary'}`}>
-                <Mic className="h-8 w-8" />
-              </Button>
-          </div>
-        </div>
-
-        <DialogFooter>
-          <DialogClose asChild>
-            <Button variant="ghost">{t('close')}</Button>
-          </DialogClose>
-        </DialogFooter>
-        <audio ref={audioRef} className="hidden" />
-      </DialogContent>
-    </Dialog>
-  );
-}
 
 function CreateBatchForm({ onBatchCreated }: { onBatchCreated: () => void }) {
   const [isPending, startTransition] = useTransition();
@@ -294,12 +110,9 @@ function CreateBatchForm({ onBatchCreated }: { onBatchCreated: () => void }) {
                 <FormItem><FormLabel>{t('quality_grade')}</FormLabel><FormControl><Input {...field} placeholder={t('quality_grade_placeholder')} /></FormControl><FormMessage /></FormItem>
               )} />
             </div>
-            <div className="flex items-center gap-4">
-              <Button type="submit" disabled={isPending} variant="default">
-                {isPending ? <Loader2 className="animate-spin" /> : t('create_batch')}
-              </Button>
-              <AiAssistantDialog onBatchCreated={onBatchCreated} form={form}/>
-            </div>
+            <Button type="submit" disabled={isPending}>
+              {isPending ? <Loader2 className="animate-spin" /> : t('create_batch')}
+            </Button>
           </form>
         </Form>
       </CardContent>

@@ -74,12 +74,5 @@
   "stocked_at": "இருப்பில் உள்ளது",
   "price_set_on": "விலை நிர்ணயிக்கப்பட்டது",
   "price": "விலை",
-  "awaiting_pricing_information": "விலை நிர்ணய தகவலுக்காக காத்திருக்கிறது.",
-  "batch_name_placeholder": "தொகுதி பெயர்",
-  "create_with_ai_assistant": "AI உதவியாளருடன் உருவாக்கவும்",
-  "ai_batch_creation_assistant": "AI தொகுதி உருவாக்கும் உதவியாளர்",
-  "ai_assistant_description": "புதிய தொகுதியை உருவாக்க உங்கள் குரலைப் பயன்படுத்தவும்.",
-  "ai_assistant_description_conversational": "தொகுதி விவரங்களை நிரப்ப உதவியாளரிடம் பேசவும்.",
-  "voice_assistant_feature_coming_soon": "குரல் உதவியாளர் அம்சம் விரைவில் வருகிறது.",
-  "close": "மூடு"
+  "awaiting_pricing_information": "விலை நிர்ணய தகவலுக்காக காத்திருக்கிறது."
 }
