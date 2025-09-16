@@ -52,18 +52,20 @@ function AiAssistantDialog({
   isOpen,
   onOpenChange,
   onFormComplete,
+  messages,
+  setMessages
 }: {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   onFormComplete: (data: Partial<CreateBatchValues>) => void;
+  messages: ConversationMessage[];
+  setMessages: (messages: ConversationMessage[]) => void;
 }) {
   const { t } = useLanguage();
   const [isAssistantPending, startAssistantTransition] = useTransition();
-  const [messages, setMessages] = useState<ConversationMessage[]>([]);
   const { toast } = useToast();
   const [isRecording, setIsRecording] = useState(false);
   const recognitionRef = useRef<any>(null);
-  const audioRef = useRef<HTMLAudioElement>(null);
   
   const speak = (text: string) => {
     if (typeof window !== 'undefined' && window.speechSynthesis) {
@@ -170,19 +172,18 @@ function AiAssistantDialog({
         toast({ title: "Unsupported Browser", description: "Your browser does not support voice recognition.", variant: "destructive"})
     }
 
-
-    // Start conversation when dialog opens
-    setMessages([]);
-    startAssistantTransition(async () => {
-        try {
-            const result = await batchCreationAssistant({ history: [] });
-            const initialMessage = { role: 'assistant', content: result.responseText };
-            setMessages([initialMessage]);
-            speak(initialMessage.content);
-        } catch (e) {
-            toast({title: "Assistant Error", description: "Could not start the AI assistant."})
-        }
-    });
+    if(messages.length === 0){
+        startAssistantTransition(async () => {
+            try {
+                const result = await batchCreationAssistant({ history: [] });
+                const initialMessage = { role: 'assistant', content: result.responseText };
+                setMessages([initialMessage]);
+                speak(initialMessage.content);
+            } catch (e) {
+                toast({title: "Assistant Error", description: "Could not start the AI assistant."})
+            }
+        });
+    }
 
     return () => {
         stopRecording();
@@ -357,6 +358,8 @@ export function FarmerDashboard({ user }: { user: User }) {
   const [batches, setBatches] = useState<Batch[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAssistantOpen, setIsAssistantOpen] = useState(false);
+  const [messages, setMessages] = useState<ConversationMessage[]>([]);
+  
   const form = useForm<CreateBatchValues>({
     resolver: zodResolver(CreateBatchSchema),
     defaultValues: {
@@ -388,6 +391,11 @@ export function FarmerDashboard({ user }: { user: User }) {
     });
     setIsAssistantOpen(false);
   };
+  
+  const handleBatchCreated = () => {
+    setMessages([]);
+    fetchBatches();
+  }
 
   if (isLoading) {
     return <div className="flex justify-center items-center h-64"><Loader2 className="h-8 w-8 animate-spin" /></div>
@@ -396,7 +404,7 @@ export function FarmerDashboard({ user }: { user: User }) {
   return (
     <div className="space-y-8">
       <CreateBatchForm 
-        onBatchCreated={fetchBatches} 
+        onBatchCreated={handleBatchCreated} 
         onAssistantOpen={() => setIsAssistantOpen(true)}
         form={form}
       />
@@ -405,6 +413,8 @@ export function FarmerDashboard({ user }: { user: User }) {
         isOpen={isAssistantOpen}
         onOpenChange={setIsAssistantOpen}
         onFormComplete={handleFormComplete}
+        messages={messages}
+        setMessages={setMessages}
       />
     </div>
   );
