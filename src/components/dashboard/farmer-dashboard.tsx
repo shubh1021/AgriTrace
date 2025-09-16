@@ -57,6 +57,7 @@ function AiAssistantDialog({
   form: any;
 }) {
   const { t } = useLanguage();
+  const { toast } = useToast();
   const [isAssistantLoading, setAssistantLoading] = useState(false);
   const [conversation, setConversation] = useState<BatchCreationAssistantMessage[]>([]);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
