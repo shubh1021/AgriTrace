@@ -77,5 +77,7 @@
   "stocked_at": "వద్ద స్టాక్ చేయబడింది",
   "price_set_on": "న ధర సెట్ చేయబడింది",
   "price": "ధర",
-  "awaiting_pricing_information": "ధరల సమాచారం కోసం వేచి ఉంది."
+  "awaiting_pricing_information": "ధరల సమాచారం కోసం వేచి ఉంది.",
+  "type_your_message": "మీ సందేశాన్ని టైప్ చేయండి...",
+  "send": "పంపు"
 }

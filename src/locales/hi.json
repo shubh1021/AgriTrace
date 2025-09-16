@@ -77,5 +77,7 @@
   "stocked_at": "पर स्टॉक किया गया",
   "price_set_on": "पर मूल्य निर्धारित",
   "price": "कीमत",
-  "awaiting_pricing_information": "मूल्य निर्धारण जानकारी की प्रतीक्षा है।"
+  "awaiting_pricing_information": "मूल्य निर्धारण जानकारी की प्रतीक्षा है।",
+  "type_your_message": "अपना संदेश टाइप करें...",
+  "send": "भेजें"
 }

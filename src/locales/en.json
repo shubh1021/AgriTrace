@@ -77,5 +77,7 @@
   "stocked_at": "Stocked at",
   "price_set_on": "Price set on",
   "price": "Price",
-  "awaiting_pricing_information": "Awaiting pricing information."
+  "awaiting_pricing_information": "Awaiting pricing information.",
+  "type_your_message": "Type your message...",
+  "send": "Send"
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition, useEffect } from 'react';
+import { useState, useTransition, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -31,11 +31,13 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
-  DialogFooter,
-  DialogClose,
 } from '@/components/ui/dialog';
 import { useLanguage } from '@/context/language-context';
+import { batchCreationAssistant } from '@/ai/flows/batch-creation-assistant';
+import type { ConversationMessage, BatchData } from '@/lib/types';
+import { ScrollArea } from '../ui/scroll-area';
+import { cn } from '@/lib/utils';
+import { Avatar, AvatarFallback } from '../ui/avatar';
 
 const CreateBatchSchema = z.object({
   productType: z.string().min(2, 'Too short'),
@@ -53,46 +55,103 @@ function AiAssistantDialog({
 }: {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
-  onFormComplete: (data: CreateBatchValues) => void;
+  onFormComplete: (data: Partial<CreateBatchValues>) => void;
 }) {
   const { t } = useLanguage();
-  
+  const [isAssistantPending, startAssistantTransition] = useTransition();
+  const [messages, setMessages] = useState<ConversationMessage[]>([]);
+  const [userInput, setUserInput] = useState('');
+  const { toast } = useToast();
+
+  const processResponse = (response: string) => {
+    startAssistantTransition(async () => {
+      try {
+        const newMessages: ConversationMessage[] = [...messages, { role: 'user', content: response }];
+        setMessages(newMessages);
+        
+        const result = await batchCreationAssistant({ history: newMessages });
+        
+        setMessages(prev => [...prev, { role: 'assistant', content: result.responseText }]);
+
+        if (result.isComplete) {
+          onFormComplete(result.extractedData);
+          toast({ title: "Form Complete!", description: "The form has been filled with the extracted details."});
+        }
+      } catch (error) {
+        console.error("Error processing response:", error);
+        toast({ title: t('error'), description: "The assistant encountered an error.", variant: 'destructive' });
+      }
+    });
+  }
+
+  const handleSend = () => {
+    if (!userInput.trim()) return;
+    processResponse(userInput);
+    setUserInput('');
+  }
+
+  // Start conversation when dialog opens
+  useEffect(() => {
+    if (isOpen) {
+      setMessages([]);
+      startAssistantTransition(async () => {
+        const result = await batchCreationAssistant({ history: [] });
+        setMessages([{ role: 'assistant', content: result.responseText }]);
+      });
+    }
+  }, [isOpen]);
+
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Mic /> {t('ai_assistant')}
           </DialogTitle>
         </DialogHeader>
-        <div className="h-96 flex items-center justify-center">
-            <p className="text-muted-foreground">{t('assistant_coming_soon')}</p>
+        <div className="h-[32rem] flex flex-col">
+          <ScrollArea className="flex-1 p-4 pr-6">
+             <div className="space-y-4">
+                {messages.map((msg, index) => (
+                  <div key={index} className={cn("flex items-start gap-3", msg.role === 'user' ? 'justify-end' : '')}>
+                    {msg.role === 'assistant' && <Avatar className="w-8 h-8"><AvatarFallback>AI</AvatarFallback></Avatar>}
+                    <div className={cn("rounded-lg px-4 py-2 max-w-sm", msg.role === 'assistant' ? 'bg-muted' : 'bg-primary text-primary-foreground')}>
+                      <p>{msg.content}</p>
+                    </div>
+                  </div>
+                ))}
+                {isAssistantPending && messages[messages.length - 1]?.role === 'user' && (
+                   <div className="flex items-start gap-3">
+                      <Avatar className="w-8 h-8"><AvatarFallback>AI</AvatarFallback></Avatar>
+                      <div className="rounded-lg px-4 py-2 max-w-sm bg-muted">
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                      </div>
+                   </div>
+                )}
+             </div>
+          </ScrollArea>
+          <div className="p-4 border-t flex items-center gap-2">
+            <Input 
+              value={userInput}
+              onChange={(e) => setUserInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+              placeholder={t('type_your_message')} 
+              disabled={isAssistantPending}
+            />
+            <Button onClick={handleSend} disabled={isAssistantPending}>
+              {t('send')}
+            </Button>
+          </div>
         </div>
-        <DialogFooter>
-          <DialogClose asChild>
-            <Button variant="ghost">{t('cancel')}</Button>
-          </DialogClose>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 }
 
-
-function CreateBatchForm({ onBatchCreated, onAssistantOpen }: { onBatchCreated: () => void; onAssistantOpen: () => void; }) {
+function CreateBatchForm({ onBatchCreated, onAssistantOpen, form }: { onBatchCreated: () => void; onAssistantOpen: () => void; form: ReturnType<typeof useForm<CreateBatchValues>> }) {
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
   const { t } = useLanguage();
-  const form = useForm<CreateBatchValues>({
-    resolver: zodResolver(CreateBatchSchema),
-    defaultValues: {
-      productType: '',
-      quantity: 100,
-      location: '',
-      harvestDate: new Date().toISOString().split('T')[0],
-      qualityGrade: '',
-    },
-  });
 
   const onSubmit = (values: CreateBatchValues) => {
     startTransition(async () => {
@@ -211,6 +270,16 @@ export function FarmerDashboard({ user }: { user: User }) {
   const [batches, setBatches] = useState<Batch[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAssistantOpen, setIsAssistantOpen] = useState(false);
+  const form = useForm<CreateBatchValues>({
+    resolver: zodResolver(CreateBatchSchema),
+    defaultValues: {
+      productType: '',
+      quantity: 100,
+      location: '',
+      harvestDate: new Date().toISOString().split('T')[0],
+      qualityGrade: '',
+    },
+  });
 
   const fetchBatches = async () => {
     const farmerBatches = await getFarmerBatches(user.id);
@@ -222,11 +291,14 @@ export function FarmerDashboard({ user }: { user: User }) {
     fetchBatches();
   }, [user.id]);
 
-  const handleFormComplete = (data: CreateBatchValues) => {
-    // This function will be called when the assistant has all the data.
-    // For now, it just closes the dialog.
-    // In the future, it will fill and submit the form.
-    console.log("Assistant collected data:", data);
+  const handleFormComplete = (data: Partial<BatchData>) => {
+    // This function is called when the assistant has all the data.
+    // It will fill the form and close the dialog.
+    Object.entries(data).forEach(([key, value]) => {
+      if (value) {
+        form.setValue(key as keyof CreateBatchValues, value);
+      }
+    });
     setIsAssistantOpen(false);
   };
 
@@ -239,6 +311,7 @@ export function FarmerDashboard({ user }: { user: User }) {
       <CreateBatchForm 
         onBatchCreated={fetchBatches} 
         onAssistantOpen={() => setIsAssistantOpen(true)}
+        form={form}
       />
       <BatchList batches={batches} user={user} />
       <AiAssistantDialog 
