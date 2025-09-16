@@ -24,7 +24,7 @@ import { Input } from '@/components/ui/input';
 import { createBatchAction, getFarmerBatches } from '@/app/actions';
 import type { User, Batch } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
-import { QrCode, PlusCircle, Sprout, Loader2, Mic } from 'lucide-react';
+import { QrCode, PlusCircle, Sprout, Loader2, Mic, MicOff } from 'lucide-react';
 import { QRCodeDisplay } from '../shared/qr-code-display';
 import {
   Dialog,
@@ -34,6 +34,7 @@ import {
 } from '@/components/ui/dialog';
 import { useLanguage } from '@/context/language-context';
 import { batchCreationAssistant } from '@/ai/flows/batch-creation-assistant';
+import { textToSpeech } from '@/ai/flows/text-to-speech';
 import type { ConversationMessage, BatchData } from '@/lib/types';
 import { ScrollArea } from '../ui/scroll-area';
 import { cn } from '@/lib/utils';
@@ -60,44 +61,141 @@ function AiAssistantDialog({
   const { t } = useLanguage();
   const [isAssistantPending, startAssistantTransition] = useTransition();
   const [messages, setMessages] = useState<ConversationMessage[]>([]);
-  const [userInput, setUserInput] = useState('');
   const { toast } = useToast();
+  const [isRecording, setIsRecording] = useState(false);
+  const recognitionRef = useRef<any>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  const processResponse = (response: string) => {
+  const processResponse = (text: string) => {
     startAssistantTransition(async () => {
       try {
-        const newMessages: ConversationMessage[] = [...messages, { role: 'user', content: response }];
+        const newMessages: ConversationMessage[] = [
+          ...messages,
+          { role: 'user', content: text },
+        ];
         setMessages(newMessages);
-        
+
         const result = await batchCreationAssistant({ history: newMessages });
         
-        setMessages(prev => [...prev, { role: 'assistant', content: result.responseText }]);
+        setMessages((prev) => [
+          ...prev,
+          { role: 'assistant', content: result.responseText },
+        ]);
+        
+        // Convert the assistant's response to speech
+        const audioResult = await textToSpeech(result.responseText);
+        if (audioResult && audioRef.current) {
+          audioRef.current.src = audioResult;
+          audioRef.current.play();
+          audioRef.current.onended = () => {
+              if (!result.isComplete) {
+                startRecording();
+              }
+          };
+        }
+
 
         if (result.isComplete) {
-          onFormComplete(result.extractedData);
-          toast({ title: "Form Complete!", description: "The form has been filled with the extracted details."});
+            stopRecording();
+            onFormComplete(result.extractedData);
+            toast({
+              title: 'Form Complete!',
+              description: 'The form has been filled with the extracted details.',
+            });
         }
       } catch (error) {
-        console.error("Error processing response:", error);
-        toast({ title: t('error'), description: "The assistant encountered an error.", variant: 'destructive' });
+        console.error('Error processing response:', error);
+        toast({
+          title: t('error'),
+          description: 'The assistant encountered an error.',
+          variant: 'destructive',
+        });
+        stopRecording();
       }
     });
-  }
+  };
 
-  const handleSend = () => {
-    if (!userInput.trim()) return;
-    processResponse(userInput);
-    setUserInput('');
-  }
+  const startRecording = () => {
+    if (recognitionRef.current) {
+      setIsRecording(true);
+      recognitionRef.current.start();
+    }
+  };
 
-  // Start conversation when dialog opens
+  const stopRecording = () => {
+    if (recognitionRef.current) {
+      setIsRecording(false);
+      recognitionRef.current.stop();
+    }
+  };
+  
+  const toggleRecording = () => {
+    if (isRecording) {
+      stopRecording();
+    } else {
+      startRecording();
+    }
+  };
+
   useEffect(() => {
-    if (isOpen) {
-      setMessages([]);
-      startAssistantTransition(async () => {
-        const result = await batchCreationAssistant({ history: [] });
-        setMessages([{ role: 'assistant', content: result.responseText }]);
-      });
+    if (!isOpen) {
+      stopRecording();
+      return;
+    }
+    
+    // Initialize speech recognition
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.lang = 'en-US';
+
+      recognition.onresult = (event) => {
+        const transcript = event.results[event.results.length - 1][0].transcript.trim();
+        if (transcript) {
+          processResponse(transcript);
+        }
+      };
+      
+      recognition.onend = () => {
+         setIsRecording(false);
+      };
+
+      recognition.onerror = (event) => {
+        console.error("Speech recognition error", event.error);
+        toast({ title: "Voice Error", description: `Speech recognition error: ${event.error}`, variant: "destructive"})
+        setIsRecording(false);
+      };
+      
+      recognitionRef.current = recognition;
+
+    } else {
+        toast({ title: "Unsupported Browser", description: "Your browser does not support voice recognition.", variant: "destructive"})
+    }
+
+
+    // Start conversation when dialog opens
+    setMessages([]);
+    startAssistantTransition(async () => {
+      const result = await batchCreationAssistant({ history: [] });
+      setMessages([{ role: 'assistant', content: result.responseText }]);
+      const audioResult = await textToSpeech(result.responseText);
+      if (audioResult && audioRef.current) {
+        audioRef.current.src = audioResult;
+        audioRef.current.play();
+        audioRef.current.onended = () => {
+            startRecording();
+        };
+      }
+    });
+
+    return () => {
+        stopRecording();
+        if (audioRef.current) {
+            audioRef.current.pause();
+            audioRef.current.src = "";
+        }
     }
   }, [isOpen]);
 
@@ -111,35 +209,34 @@ function AiAssistantDialog({
         </DialogHeader>
         <div className="h-[32rem] flex flex-col">
           <ScrollArea className="flex-1 p-4 pr-6">
-             <div className="space-y-4">
-                {messages.map((msg, index) => (
-                  <div key={index} className={cn("flex items-start gap-3", msg.role === 'user' ? 'justify-end' : '')}>
-                    {msg.role === 'assistant' && <Avatar className="w-8 h-8"><AvatarFallback>AI</AvatarFallback></Avatar>}
-                    <div className={cn("rounded-lg px-4 py-2 max-w-sm", msg.role === 'assistant' ? 'bg-muted' : 'bg-primary text-primary-foreground')}>
-                      <p>{msg.content}</p>
-                    </div>
+            <div className="space-y-4">
+              {messages.map((msg, index) => (
+                <div key={index} className={cn("flex items-start gap-3", msg.role === 'user' ? 'justify-end' : '')}>
+                  {msg.role === 'assistant' && <Avatar className="w-8 h-8"><AvatarFallback>AI</AvatarFallback></Avatar>}
+                  <div className={cn("rounded-lg px-4 py-2 max-w-sm", msg.role === 'assistant' ? 'bg-muted' : 'bg-primary text-primary-foreground')}>
+                    <p>{msg.content}</p>
                   </div>
-                ))}
-                {isAssistantPending && messages[messages.length - 1]?.role === 'user' && (
-                   <div className="flex items-start gap-3">
-                      <Avatar className="w-8 h-8"><AvatarFallback>AI</AvatarFallback></Avatar>
-                      <div className="rounded-lg px-4 py-2 max-w-sm bg-muted">
-                        <Loader2 className="w-5 h-5 animate-spin" />
-                      </div>
-                   </div>
-                )}
-             </div>
+                </div>
+              ))}
+              {(isAssistantPending || isRecording) && (
+                 <div className="flex items-start gap-3 justify-center py-4">
+                    <div className={cn("rounded-full p-4", isRecording ? 'bg-red-500/20' : 'bg-muted')}>
+                       <Mic className={cn("w-6 h-6", isRecording ? 'text-red-500' : 'text-muted-foreground')} />
+                    </div>
+                 </div>
+              )}
+            </div>
+            <audio ref={audioRef} className="hidden" />
           </ScrollArea>
-          <div className="p-4 border-t flex items-center gap-2">
-            <Input 
-              value={userInput}
-              onChange={(e) => setUserInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-              placeholder={t('type_your_message')} 
-              disabled={isAssistantPending}
-            />
-            <Button onClick={handleSend} disabled={isAssistantPending}>
-              {t('send')}
+           <div className="p-4 border-t flex items-center justify-center">
+             <Button 
+                variant="outline" 
+                size="icon" 
+                className="w-16 h-16 rounded-full" 
+                onClick={toggleRecording}
+                disabled={isAssistantPending}
+            >
+                {isRecording ? <MicOff /> : <Mic />}
             </Button>
           </div>
         </div>
