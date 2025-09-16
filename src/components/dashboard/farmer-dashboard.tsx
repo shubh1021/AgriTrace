@@ -34,7 +34,6 @@ import {
 } from '@/components/ui/dialog';
 import { useLanguage } from '@/context/language-context';
 import { batchCreationAssistant } from '@/ai/flows/batch-creation-assistant';
-import { textToSpeech } from '@/ai/flows/text-to-speech';
 import type { ConversationMessage, BatchData } from '@/lib/types';
 import { ScrollArea } from '../ui/scroll-area';
 import { cn } from '@/lib/utils';
@@ -64,8 +63,7 @@ function AiAssistantDialog({
   const { toast } = useToast();
   const [isRecording, setIsRecording] = useState(false);
   const recognitionRef = useRef<any>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-
+  
   const processResponse = (text: string) => {
     startAssistantTransition(async () => {
       try {
@@ -82,19 +80,6 @@ function AiAssistantDialog({
           { role: 'assistant', content: result.responseText },
         ]);
         
-        // Convert the assistant's response to speech
-        const audioResult = await textToSpeech(result.responseText);
-        if (audioResult && audioRef.current) {
-          audioRef.current.src = audioResult;
-          audioRef.current.play();
-          audioRef.current.onended = () => {
-              if (!result.isComplete) {
-                startRecording();
-              }
-          };
-        }
-
-
         if (result.isComplete) {
             stopRecording();
             onFormComplete(result.extractedData);
@@ -160,6 +145,11 @@ function AiAssistantDialog({
       
       recognition.onend = () => {
          setIsRecording(false);
+         // Automatically restart listening if not complete
+         const isComplete = messages.some(m => m.role === 'assistant' && m.content.includes('Great, I have all the details'));
+         if (isOpen && !isComplete) {
+            startRecording();
+         }
       };
 
       recognition.onerror = (event) => {
@@ -178,24 +168,17 @@ function AiAssistantDialog({
     // Start conversation when dialog opens
     setMessages([]);
     startAssistantTransition(async () => {
-      const result = await batchCreationAssistant({ history: [] });
-      setMessages([{ role: 'assistant', content: result.responseText }]);
-      const audioResult = await textToSpeech(result.responseText);
-      if (audioResult && audioRef.current) {
-        audioRef.current.src = audioResult;
-        audioRef.current.play();
-        audioRef.current.onended = () => {
+        try {
+            const result = await batchCreationassistant({ history: [] });
+            setMessages([{ role: 'assistant', content: result.responseText }]);
             startRecording();
-        };
-      }
+        } catch (e) {
+            toast({title: "Assistant Error", description: "Could not start the AI assistant."})
+        }
     });
 
     return () => {
         stopRecording();
-        if (audioRef.current) {
-            audioRef.current.pause();
-            audioRef.current.src = "";
-        }
     }
   }, [isOpen]);
 
@@ -226,7 +209,6 @@ function AiAssistantDialog({
                  </div>
               )}
             </div>
-            <audio ref={audioRef} className="hidden" />
           </ScrollArea>
            <div className="p-4 border-t flex items-center justify-center">
              <Button 
@@ -419,3 +401,5 @@ export function FarmerDashboard({ user }: { user: User }) {
     </div>
   );
 }
+
+    
