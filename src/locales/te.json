@@ -75,5 +75,10 @@
   "price_set_on": "న ధర సెట్ చేయబడింది",
   "price": "ధర",
   "awaiting_pricing_information": "ధరల సమాచారం కోసం వేచి ఉంది.",
-  "batch_name_placeholder": "బ్యాచ్ పేరు"
+  "batch_name_placeholder": "బ్యాచ్ పేరు",
+  "create_with_ai_assistant": "AI సహాయకుడితో సృష్టించండి",
+  "ai_batch_creation_assistant": "AI బ్యాచ్ సృష్టి సహాయకుడు",
+  "ai_assistant_description": "కొత్త బ్యాచ్‌ను సృష్టించడానికి మీ వాయిస్‌ని ఉపయోగించండి.",
+  "voice_assistant_feature_coming_soon": "వాయిస్ అసిస్టెంట్ ఫీచర్ త్వరలో వస్తుంది.",
+  "close": "మూసివేయి"
 }

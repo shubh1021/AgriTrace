@@ -24,7 +24,7 @@ import { Input } from '@/components/ui/input';
 import { createBatchAction, getFarmerBatches } from '@/app/actions';
 import type { User, Batch } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
-import { QrCode, PlusCircle, Sprout, Loader2 } from 'lucide-react';
+import { QrCode, PlusCircle, Sprout, Loader2, Mic } from 'lucide-react';
 import { QRCodeDisplay } from '../shared/qr-code-display';
 import {
   Dialog,
@@ -32,6 +32,8 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogFooter,
+  DialogClose,
 } from '@/components/ui/dialog';
 import { useEffect } from 'react';
 import { useLanguage } from '@/context/language-context';
@@ -44,6 +46,37 @@ const CreateBatchSchema = z.object({
   qualityGrade: z.string().min(1, 'Required'),
 });
 type CreateBatchValues = z.infer<typeof CreateBatchSchema>;
+
+function AiAssistantDialog({
+  onBatchCreated,
+}: {
+  onBatchCreated: () => void;
+}) {
+  const { t } = useLanguage();
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button variant="outline">
+          <Mic className="mr-2" /> {t('create_with_ai_assistant')}
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>{t('ai_batch_creation_assistant')}</DialogTitle>
+          <CardDescription>{t('ai_assistant_description')}</CardDescription>
+        </DialogHeader>
+        <div className="mt-4 h-96 flex items-center justify-center bg-muted/50 rounded-lg">
+            <p className="text-muted-foreground">{t('voice_assistant_feature_coming_soon')}</p>
+        </div>
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button variant="ghost">{t('close')}</Button>
+          </DialogClose>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 function CreateBatchForm({ onBatchCreated }: { onBatchCreated: () => void }) {
   const [isPending, startTransition] = useTransition();
@@ -111,9 +144,12 @@ function CreateBatchForm({ onBatchCreated }: { onBatchCreated: () => void }) {
                 <FormItem><FormLabel>{t('quality_grade')}</FormLabel><FormControl><Input {...field} placeholder={t('quality_grade_placeholder')} /></FormControl><FormMessage /></FormItem>
               )} />
             </div>
-            <Button type="submit" disabled={isPending} className="w-full md:w-auto" variant="default">
-              {isPending ? <Loader2 className="animate-spin" /> : t('create_batch')}
-            </Button>
+            <div className="flex items-center gap-4">
+              <Button type="submit" disabled={isPending} variant="default">
+                {isPending ? <Loader2 className="animate-spin" /> : t('create_batch')}
+              </Button>
+              <AiAssistantDialog onBatchCreated={onBatchCreated} />
+            </div>
           </form>
         </Form>
       </CardContent>

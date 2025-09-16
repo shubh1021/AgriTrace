@@ -75,5 +75,10 @@
   "price_set_on": "Price set on",
   "price": "Price",
   "awaiting_pricing_information": "Awaiting pricing information.",
-  "batch_name_placeholder": "Batch Name"
+  "batch_name_placeholder": "Batch Name",
+  "create_with_ai_assistant": "Create with AI Assistant",
+  "ai_batch_creation_assistant": "AI Batch Creation Assistant",
+  "ai_assistant_description": "Use your voice to create a new batch.",
+  "voice_assistant_feature_coming_soon": "Voice assistant feature coming soon.",
+  "close": "Close"
 }

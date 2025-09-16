@@ -75,5 +75,10 @@
   "price_set_on": "पर मूल्य निर्धारित",
   "price": "कीमत",
   "awaiting_pricing_information": "मूल्य निर्धारण जानकारी की प्रतीक्षा है।",
-  "batch_name_placeholder": "बैच का नाम"
+  "batch_name_placeholder": "बैच का नाम",
+  "create_with_ai_assistant": "एआई सहायक के साथ बनाएं",
+  "ai_batch_creation_assistant": "एआई बैच निर्माण सहायक",
+  "ai_assistant_description": "नया बैच बनाने के लिए अपनी आवाज़ का उपयोग करें।",
+  "voice_assistant_feature_coming_soon": "आवाज सहायक सुविधा जल्द ही आ रही है।",
+  "close": "बंद करें"
 }
