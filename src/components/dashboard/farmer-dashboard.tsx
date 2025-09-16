@@ -150,6 +150,8 @@ function AiAssistantDialog({
 
       recognition.onresult = (event) => {
         const transcript = event.results[event.results.length - 1][0].transcript.trim();
+        const userMessage: ConversationMessage = { role: 'user', content: transcript };
+        setMessages((prev) => [...prev, userMessage]);
         processResponse(transcript);
       };
       
@@ -158,6 +160,10 @@ function AiAssistantDialog({
       };
 
       recognition.onerror = (event) => {
+        if (event.error === 'no-speech') {
+            stopRecording();
+            return;
+        }
         console.error("Speech recognition error", event.error);
         toast({ title: "Voice Error", description: `Speech recognition error: ${event.error}`, variant: "destructive"})
         setIsRecording(false);
