@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition, useEffect, useRef } from 'react';
+import { useState, useTransition, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -24,20 +24,16 @@ import { Input } from '@/components/ui/input';
 import { createBatchAction, getFarmerBatches } from '@/app/actions';
 import type { User, Batch } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
-import { QrCode, PlusCircle, Sprout, Loader2, Mic, MicOff } from 'lucide-react';
+import { QrCode, PlusCircle, Sprout, Loader2 } from 'lucide-react';
 import { QRCodeDisplay } from '../shared/qr-code-display';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from '@/components/ui/dialog';
 import { useLanguage } from '@/context/language-context';
-import { batchCreationAssistant } from '@/ai/flows/batch-creation-assistant';
-import type { ConversationMessage, BatchData } from '@/lib/types';
-import { ScrollArea } from '../ui/scroll-area';
-import { cn } from '@/lib/utils';
-import { Avatar, AvatarFallback } from '../ui/avatar';
 
 const CreateBatchSchema = z.object({
   productType: z.string().min(2, 'Too short'),
@@ -48,198 +44,7 @@ const CreateBatchSchema = z.object({
 });
 type CreateBatchValues = z.infer<typeof CreateBatchSchema>;
 
-function AiAssistantDialog({
-  isOpen,
-  onOpenChange,
-  onFormComplete,
-  messages,
-  setMessages
-}: {
-  isOpen: boolean;
-  onOpenChange: (open: boolean) => void;
-  onFormComplete: (data: Partial<CreateBatchValues>) => void;
-  messages: ConversationMessage[];
-  setMessages: (messages: ConversationMessage[]) => void;
-}) {
-  const { t } = useLanguage();
-  const [isAssistantPending, startAssistantTransition] = useTransition();
-  const { toast } = useToast();
-  const [isRecording, setIsRecording] = useState(false);
-  const recognitionRef = useRef<any>(null);
-  
-  const speak = (text: string) => {
-    if (typeof window !== 'undefined' && window.speechSynthesis) {
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'en-US';
-      window.speechSynthesis.speak(utterance);
-    }
-  };
-
-  const processResponse = (text: string) => {
-    if (!text) return;
-    const userMessage: ConversationMessage = { role: 'user', content: text };
-    setMessages([...messages, userMessage]);
-
-    startAssistantTransition(async () => {
-      try {
-        const result = await batchCreationAssistant({ history: [...messages, userMessage] });
-
-        setMessages((prev) => [
-          ...prev,
-          { role: 'assistant', content: result.responseText },
-        ]);
-        
-        speak(result.responseText);
-        
-        if (result.isComplete) {
-            stopRecording();
-            onFormComplete(result.extractedData);
-            toast({
-              title: 'Form Complete!',
-              description: 'The form has been filled with the extracted details.',
-            });
-        }
-      } catch (error) {
-        console.error('Error processing response:', error);
-        toast({
-          title: t('error'),
-          description: 'The assistant encountered an error.',
-          variant: 'destructive',
-        });
-        stopRecording();
-      }
-    });
-  };
-
-  const startRecording = () => {
-    if (recognitionRef.current) {
-      setIsRecording(true);
-      recognitionRef.current.start();
-    }
-  };
-
-  const stopRecording = () => {
-    if (recognitionRef.current) {
-      setIsRecording(false);
-      recognitionRef.current.stop();
-    }
-  };
-  
-  const toggleRecording = () => {
-    if (isRecording) {
-      stopRecording();
-    } else {
-      startRecording();
-    }
-  };
-
-  useEffect(() => {
-    if (!isOpen) {
-      stopRecording();
-      window.speechSynthesis?.cancel();
-      return;
-    }
-    
-    // Initialize speech recognition
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (SpeechRecognition) {
-      const recognition = new SpeechRecognition();
-      recognition.continuous = false;
-      recognition.interimResults = false;
-      recognition.lang = 'en-US';
-
-      recognition.onresult = (event) => {
-        const transcript = event.results[event.results.length - 1][0].transcript.trim();
-        const userMessage: ConversationMessage = { role: 'user', content: transcript };
-        setMessages((prev) => [...prev, userMessage]);
-        processResponse(transcript);
-      };
-      
-      recognition.onend = () => {
-         setIsRecording(false);
-      };
-
-      recognition.onerror = (event) => {
-        if (event.error === 'no-speech') {
-            stopRecording();
-            return;
-        }
-        console.error("Speech recognition error", event.error);
-        toast({ title: "Voice Error", description: `Speech recognition error: ${event.error}`, variant: "destructive"})
-        setIsRecording(false);
-      };
-      
-      recognitionRef.current = recognition;
-
-    } else {
-        toast({ title: "Unsupported Browser", description: "Your browser does not support voice recognition.", variant: "destructive"})
-    }
-
-    if(messages.length === 0){
-        startAssistantTransition(async () => {
-            try {
-                const result = await batchCreationAssistant({ history: [] });
-                const initialMessage = { role: 'assistant', content: result.responseText };
-                setMessages([initialMessage]);
-                speak(initialMessage.content);
-            } catch (e) {
-                toast({title: "Assistant Error", description: "Could not start the AI assistant."})
-            }
-        });
-    }
-
-    return () => {
-        stopRecording();
-        window.speechSynthesis?.cancel();
-    }
-  }, [isOpen]);
-
-  return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Mic /> {t('ai_assistant')}
-          </DialogTitle>
-        </DialogHeader>
-        <div className="h-[32rem] flex flex-col">
-          <ScrollArea className="flex-1 p-4 pr-6">
-            <div className="space-y-4">
-              {messages.map((msg, index) => (
-                <div key={index} className={cn("flex items-start gap-3", msg.role === 'user' ? 'justify-end' : '')}>
-                  {msg.role === 'assistant' && <Avatar className="w-8 h-8"><AvatarFallback>AI</AvatarFallback></Avatar>}
-                  <div className={cn("rounded-lg px-4 py-2 max-w-sm", msg.role === 'assistant' ? 'bg-muted' : 'bg-primary text-primary-foreground')}>
-                    <p>{msg.content}</p>
-                  </div>
-                </div>
-              ))}
-              {(isAssistantPending || isRecording) && (
-                 <div className="flex items-start gap-3 justify-center py-4">
-                    <div className={cn("rounded-full p-4", isRecording ? 'bg-red-500/20' : 'bg-muted')}>
-                       <Mic className={cn("w-6 h-6", isRecording ? 'text-red-500' : 'text-muted-foreground')} />
-                    </div>
-                 </div>
-              )}
-            </div>
-          </ScrollArea>
-           <div className="p-4 border-t flex items-center justify-center">
-             <Button 
-                variant="outline" 
-                size="icon" 
-                className="w-16 h-16 rounded-full" 
-                onClick={toggleRecording}
-                disabled={isAssistantPending}
-            >
-                {isRecording ? <MicOff /> : <Mic />}
-            </Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function CreateBatchForm({ onBatchCreated, onAssistantOpen, form }: { onBatchCreated: () => void; onAssistantOpen: () => void; form: ReturnType<typeof useForm<CreateBatchValues>> }) {
+function CreateBatchForm({ onBatchCreated, form }: { onBatchCreated: () => void; form: ReturnType<typeof useForm<CreateBatchValues>> }) {
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
   const { t } = useLanguage();
@@ -299,10 +104,6 @@ function CreateBatchForm({ onBatchCreated, onAssistantOpen, form }: { onBatchCre
               <Button type="submit" disabled={isPending}>
                 {isPending ? <Loader2 className="animate-spin" /> : t('create_batch')}
               </Button>
-               <Button type="button" variant="outline" onClick={onAssistantOpen}>
-                <Mic className="mr-2" />
-                {t('create_with_ai_assistant')}
-              </Button>
             </div>
           </form>
         </Form>
@@ -360,8 +161,6 @@ function BatchList({ batches, user }: { batches: Batch[], user: User }) {
 export function FarmerDashboard({ user }: { user: User }) {
   const [batches, setBatches] = useState<Batch[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isAssistantOpen, setIsAssistantOpen] = useState(false);
-  const [messages, setMessages] = useState<ConversationMessage[]>([]);
   
   const form = useForm<CreateBatchValues>({
     resolver: zodResolver(CreateBatchSchema),
@@ -383,20 +182,8 @@ export function FarmerDashboard({ user }: { user: User }) {
   useEffect(() => {
     fetchBatches();
   }, [user.id]);
-
-  const handleFormComplete = (data: Partial<BatchData>) => {
-    // This function is called when the assistant has all the data.
-    // It will fill the form and close the dialog.
-    Object.entries(data).forEach(([key, value]) => {
-      if (value) {
-        form.setValue(key as keyof CreateBatchValues, value);
-      }
-    });
-    setIsAssistantOpen(false);
-  };
   
   const handleBatchCreated = () => {
-    setMessages([]);
     fetchBatches();
   }
 
@@ -408,17 +195,9 @@ export function FarmerDashboard({ user }: { user: User }) {
     <div className="space-y-8">
       <CreateBatchForm 
         onBatchCreated={handleBatchCreated} 
-        onAssistantOpen={() => setIsAssistantOpen(true)}
         form={form}
       />
       <BatchList batches={batches} user={user} />
-      <AiAssistantDialog 
-        isOpen={isAssistantOpen}
-        onOpenChange={setIsAssistantOpen}
-        onFormComplete={handleFormComplete}
-        messages={messages}
-        setMessages={setMessages}
-      />
     </div>
   );
 }
